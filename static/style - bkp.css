@@ -1,0 +1,375 @@
+/* Caricamento font Playfair Display */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #111;
+    font-family: 'Playfair Display', serif;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    text-align: center;
+}
+
+.logo img, .logo {
+    width: 140px;
+    height: auto;
+    margin: 40px 0 30px;
+}
+
+.container {
+    background-color: #1b1b1b;
+    padding: 30px 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    width: 100%;
+    max-width: 500px;
+    box-sizing: border-box;
+}
+
+.container h1 {
+    color: #c89c4f;
+    font-size: 1.5em;
+    margin-bottom: 20px;
+}
+
+input[type="text"].input-home {
+    padding: 10px;
+    width: 75%;
+    max-width: 300px;
+    border: none;
+    border-radius: 5px 0 0 5px;
+    font-size: 1em;
+    box-sizing: border-box;
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #c89c4f;
+    border: none;
+    border-radius: 0 5px 5px 0;
+    color: #000;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1em;
+}
+
+footer {
+    margin-top: 40px;
+    font-size: 0.8em;
+    color: #888;
+    line-height: 1.6;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Homepage: Responsive box */
+@media (max-width: 600px) {
+    .container {
+        padding: 25px 15px;
+        width: 99%;
+    }
+
+    input[type="text"] {
+        width: 65%;
+    }
+
+    .logo {
+        margin-top: 20px;
+        width: 120px;
+    }
+
+    footer {
+        font-size: 0.75em;
+    }
+}
+
+/* === VOUCHER PAGE === */
+
+.voucher-title {
+    font-family: 'Playfair Display', serif;
+    color: #d4a855;
+    font-size: 1.8em;
+    margin: 40px 0 20px;
+    text-align: center;
+}
+
+.voucher-box {
+    background-color: #1b1b1b;
+    padding: 40px 30px;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 100%;
+    margin: 0 auto;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+    text-align: center;
+}
+
+.voucher-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin: 6px 0;
+    flex-wrap: wrap;
+    line-height: 1.2;
+}
+
+.voucher-icon {
+    font-size: 16px;
+    display: inline-block;
+    vertical-align: right;
+    transform: translateY(-2px);
+    margin-right: -2px;
+}
+
+.voucher-label {
+    font-family: 'Playfair Display', serif;
+    color: #d4a855;
+    font-weight: 700;
+    font-size: 1rem;
+    line-height: 1.2;
+}
+
+.voucher-data {
+    font-family: 'Segoe UI', sans-serif;
+    font-weight: 400;
+    font-size: 1rem;
+    color: #f0f0f0;
+    line-height: 1.2;
+}
+
+.voucher-btn {
+    margin: 30px auto 50px;
+    text-align: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.voucher-btn .modifica-btn {
+    padding: 12px 30px;
+    background-color: #d4a855; /* oro */
+    color: #222; /* grigio scuro */
+    font-weight: bold;
+    font-family: 'Segoe UI', sans-serif;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.voucher-btn .ricerca-btn {
+    padding: 12px 30px;
+    background-color: #333; /* grigio */
+    color: #fff; /* bianco */
+    font-weight: bold;
+    font-family: 'Segoe UI', sans-serif;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+/* Responsive specifica per pagina voucher */
+@media (max-width: 600px) {
+    .voucher-title {
+        font-size: 1.3em;
+        padding: 0 15px;
+        text-align: center;
+    }
+
+    .voucher-box {
+        width: 95%;
+        padding: 25px 15px;
+    }
+
+    .voucher-row {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 4px;
+        line-height: 1.2;
+        margin: 5px 0;
+    }
+
+    .voucher-icon {
+        margin-bottom: 2px;
+        transform: none;
+    }
+
+    .voucher-btn {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }
+
+    .voucher-btn .modifica-btn,
+    .voucher-btn .ricerca-btn {
+        width: 90%;
+        max-width: 300px;
+        padding: 12px 15px;
+        font-size: 0.9em;
+    }
+}
+
+.voucher-warning {
+    color: #ffcc00;
+    font-weight: bold;
+    background-color: #332800;
+    padding: 10px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    max-width: 600px;
+    text-align: center;
+}
+
+.input-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.label-box {
+  background-color: #c89c4f;
+  color: #000;
+  padding: 10px 18px;
+  border-radius: 5px 0 0 5px;
+  font-weight: bold;
+  font-family: 'Playfair Display', serif;
+  white-space: nowrap;
+}
+
+.euro-input {
+  padding: 10px;
+  border: none;
+  border-radius: 0 5px 5px 0;
+  font-size: 1em;
+  width: 160px;
+}
+
+.checkbox-input {
+  width: 20px;
+  height: 20px;
+  accent-color: #fff;
+  border-radius: 3px;
+  background: #fff;
+}
+
+.input-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 25px;
+}
+
+.label-box {
+  background-color: #c89c4f;
+  color: #000;
+  padding: 10px 15px;
+  font-weight: bold;
+  font-family: 'Playfair Display', serif;
+  font-size: 1em;
+  border-radius: 5px 0 0 5px;
+  white-space: nowrap;
+}
+
+.euro-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.euro-prefix {
+  background-color: #fff;
+  color: #555;
+  padding: 10px;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 1em;
+  border: none;
+  border-right: 1px solid #ccc;
+  border-radius: 0;
+}
+
+.euro-input {
+  padding: 10px;
+  font-size: 1em;
+  border: none;
+  border-radius: 0 5px 5px 0;
+  width: 160px;
+  color: #000;
+}
+
+/* === FIX visuale per Appuntamento + Input === */
+/* --- PATCH "Gestisci voucher" --- */
+
+/* Riga input: oro + input stessa altezza e larghezza della textarea Note */
+/* --- PATCH altezza e placeholder € --- */
+/* --- FIX definitivo: pulsante oro in Gestisci --- */
+/* === FIX definitivi Gestisci voucher === */
+/* === ALIGN FIX Gestisci: altezza identica + gap + radius esterni === */
+.gestione-voucher-page .input-home-line{
+  display:flex;
+  align-items:stretch;        /* stessa altezza */
+  width:100%;
+  max-width:500px;
+  margin:0 auto 25px;
+  column-gap:2px;             /* micro spazio come in home */
+}
+
+/* Forza label oro */
+.gestione-voucher-page .input-home-label{
+  background:#c89c4f !important;
+  color:#000 !important;
+  font-family:'Segoe UI', sans-serif;
+  font-weight:bold;
+  height:42px !important;
+  padding:0 18px !important;  /* solo orizzontale */
+  border:none !important;
+  border-radius:5px 0 0 5px !important;   /* radius solo a sinistra */
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  line-height:42px !important;
+  margin:0 !important;
+  box-sizing:border-box;
+}
+
+/* Contenitore input bianco */
+.gestione-voucher-page .euro-field{
+  position:relative;
+  flex:1;
+  display:flex;
+  margin:0;
+}
+
+/* Forza input bianco */
+.gestione-voucher-page .euro-field .euro-input{
+  width:100% !important;
+  height:42px !important;                      /* = label oro */
+  padding:0 12px 0 36px !important;            /* spazio per € */
+  border:none !important;
+  border-radius:0 5px 5px 0 !important;        /* radius solo a destra */
+  line-height:42px !important;                 /* placeholder centrato */
+  background:#fff;
+  color:#000;
+  box-sizing:border-box;
+}
+
+/* Simbolo € centrato, non sovrapposto */
+.gestione-voucher-page .euro-symbol{
+  position:absolute;
+  left:12px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#555;
+  pointer-events:none;
+}

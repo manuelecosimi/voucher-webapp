@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Voucher trovato</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Titolo fuori dal box -->
+  <h1 class="voucher-title">Voucher trovato</h1>
+
+  <!-- Box dei risultati -->
+  <div class="voucher-box">
+
+    <div class="voucher-row">
+      <span class="voucher-icon">📦</span>
+      <span class="voucher-label">Ordine:</span>
+      <span class="voucher-data">{{ voucher.ordine }}</span>
+    </div>
+
+    <div class="voucher-row">
+      <span class="voucher-icon">🔐</span>
+      <span class="voucher-label">Status:</span>
+      <span class="voucher-data" style="color: {% if voucher.status|lower == 'attiva' %}#00cc66{% elif voucher.status|lower == 'scaduta' %}#cc3333{% else %}white{% endif %};">
+        {{ voucher.status|capitalize }}
+      </span>
+    </div>
+
+    {% if voucher.status|lower == 'scaduta' %}
+      <br>
+      <div class="voucher-row" style="justify-content: center;">
+        <span style="color: #cc3333; font-weight: bold; font-size: 20px;">Questo voucher è già stato utilizzato</span>
+      </div>
+      <br>
+      <div class="voucher-row">
+        <span class="voucher-icon">📧</span>
+        <span class="voucher-label">Email cliente:</span>
+        <span class="voucher-data">{{ voucher.email }}</span>
+      </div>
+    {% else %}
+
+      {% if voucher.card %}
+      <div class="voucher-row">
+        <span class="voucher-icon">💳</span>
+        <span class="voucher-label">Card:</span>
+        <span class="voucher-data">{{ voucher.card }}</span>
+      </div>
+      {% endif %}
+
+      <br>
+
+      <div class="voucher-row">
+        <span class="voucher-icon">💶</span>
+        <span class="voucher-label">Valore:</span>
+        <span class="voucher-data">{{ voucher.valore }}</span>
+      </div>
+
+      <div class="voucher-row">
+        <span class="voucher-icon">💰</span>
+        <span class="voucher-label">Residuo:</span>
+        <span class="voucher-data">{{ voucher.residuo }}</span>
+      </div>
+
+      {% if voucher.servizio %}
+      <div class="voucher-row">
+        <span class="voucher-icon">📝</span>
+        <span class="voucher-label">Servizio/note:</span>
+        <span class="voucher-data">{{ voucher.servizio }}</span>
+      </div>
+      {% endif %}
+
+      <br>
+
+      {% if voucher.card_fisica %}
+      <div class="voucher-row">
+        <span class="voucher-icon">🎫</span>
+        <span class="voucher-label">Card fisica:</span>
+        <span class="voucher-data">{{ voucher.card_fisica }}</span>
+      </div>
+      {% endif %}
+
+      {% if voucher.box %}
+      <div class="voucher-row">
+        <span class="voucher-icon">🎁</span>
+        <span class="voucher-label">Box:</span>
+        <span class="voucher-data">{{ voucher.box }}</span>
+      </div>
+      {% endif %}
+
+      <br>
+
+      <div class="voucher-row">
+        <span class="voucher-icon">📧</span>
+        <span class="voucher-label">Email cliente:</span>
+        <span class="voucher-data">{{ voucher.email }}</span>
+      </div>
+
+      <div class="voucher-row">
+        <span class="voucher-icon">📅</span>
+        <span class="voucher-label">Data acquisto:</span>
+        <span class="voucher-data">{{ voucher.data }}</span>
+      </div>
+
+      {# ---- STORICO con note per appuntamento e senza doppio € ---- #}
+      {% if voucher.storico %}
+  <br>
+  <div class="voucher-row">
+    <span class="voucher-icon">🪒</span>
+    <span class="voucher-label">STORICO:</span>
+  </div>
+
+  {% for valore in voucher.storico %}
+    <div class="storico-group">
+      <div class="voucher-row">
+        <span class="voucher-icon">📅</span>
+        <span class="voucher-label">Appuntamento {{ loop.index }}:</span>
+        <span class="voucher-data">Scalati {{ valore }}</span>
+      </div>
+
+      {% if voucher.storico_note_map and voucher.storico_note_map.get(loop.index) %}
+        <div class="voucher-row" style="margin-top:-2px;">
+          <span class="voucher-icon">🗒️</span>
+          <span class="voucher-label">Note:</span>
+          <span class="voucher-data">{{ voucher.storico_note_map.get(loop.index) }}</span>
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+{% endif %}
+
+    {% endif %}
+
+  </div>
+
+  <!-- Bottoni sotto al box -->
+  <div class="voucher-btn">
+    {% if voucher.status|lower != 'scaduta' %}
+      <a href="{{ url_for('gestisci', numero=voucher.numero) }}">
+        <button style="background-color: #d4a855; color: #222;">GESTISCI VOUCHER</button>
+      </a>
+    {% endif %}
+    <a href="/"><button style="background-color: #333; color: white;">CERCA UN ALTRO VOUCHER</button></a>
+  </div>
+
+</body>
+</html>
