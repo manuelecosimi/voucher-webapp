@@ -316,60 +316,122 @@ footer {
 /* --- FIX definitivo: pulsante oro in Gestisci --- */
 /* === FIX definitivi Gestisci voucher === */
 /* === ALIGN FIX Gestisci: altezza identica + gap + radius esterni === */
+/* === Allineamento finale "Appuntamento + € Es. 85" === */
 .gestione-voucher-page .input-home-line{
   display:flex;
-  align-items:stretch;        /* stessa altezza */
+  align-items:stretch;          /* altezze identiche */
   width:100%;
   max-width:500px;
   margin:0 auto 25px;
-  column-gap:2px;             /* micro spazio come in home */
+  column-gap:2px;               /* micro-spazio come in home */
 }
 
-/* Forza label oro */
+/* Bottone oro a sinistra (stessa altezza dell’input) */
 .gestione-voucher-page .input-home-label{
   background:#c89c4f !important;
   color:#000 !important;
   font-family:'Segoe UI', sans-serif;
   font-weight:bold;
-  height:42px !important;
-  padding:0 18px !important;  /* solo orizzontale */
+  height:40px !important;       /* << forza altezza identica */
+  line-height:40px !important;  /* testo centrato verticalmente */
+  padding:0 18px !important;    /* solo orizzontale */
   border:none !important;
-  border-radius:5px 0 0 5px !important;   /* radius solo a sinistra */
+  border-radius:5px 0 0 5px !important;
   display:flex !important;
   align-items:center !important;
   justify-content:center !important;
-  line-height:42px !important;
+  white-space:nowrap;
   margin:0 !important;
-  box-sizing:border-box;
+  box-sizing:border-box !important;
 }
 
-/* Contenitore input bianco */
+/* Contenitore del campo bianco */
 .gestione-voucher-page .euro-field{
   position:relative;
   flex:1;
   display:flex;
+  align-items:stretch;
   margin:0;
 }
 
-/* Forza input bianco */
+/* Input bianco (stessa altezza del bottone oro) */
 .gestione-voucher-page .euro-field .euro-input{
   width:100% !important;
-  height:42px !important;                      /* = label oro */
-  padding:0 12px 0 36px !important;            /* spazio per € */
+  height:40px !important;       /* << stessa altezza */
+  line-height:40px !important;  /* placeholder centrato */
+  margin:0 !important;
+  padding:0 12px 0 36px !important; /* spazio per € */
   border:none !important;
-  border-radius:0 5px 5px 0 !important;        /* radius solo a destra */
-  line-height:42px !important;                 /* placeholder centrato */
+  border-radius:0 5px 5px 0 !important;
   background:#fff;
   color:#000;
   box-sizing:border-box;
 }
 
-/* Simbolo € centrato, non sovrapposto */
+/* Nudge verticale del simbolo € per allinearlo al placeholder */
 .gestione-voucher-page .euro-symbol{
-  position:absolute;
-  left:12px;
-  top:50%;
-  transform:translateY(-50%);
-  color:#555;
-  pointer-events:none;
+  position: absolute;        /* ancora all'euro-field */
+  left: 12px;                /* distanza dal bordo sinistro del box bianco */
+  top: calc(50% - 1px);      /* leggero nudge verso l’alto */
+  transform: translateY(-50%);
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 1em;
+  font-weight: normal;
+  color: #555;
+  pointer-events: none;
 }
+
+
+/* --- Servizio effettuato: stesso layout dell'input appuntamento --- */
+.gestione-voucher-page .service-line{
+  display:flex;
+  align-items:stretch;         /* stessa altezza fra oro e bianco */
+  width:100%;
+  max-width:500px;
+  margin:0 auto 25px;          /* centrato come l'altro */
+  column-gap:2px;              /* stesso micro-spazio */
+}
+
+.gestione-voucher-page .service-field{
+  background:#fff;             /* box bianco */
+  border-radius:0 5px 5px 0;   /* radius solo a destra (esterno) */
+  height:40px;                 /* stessa altezza del bottone oro */
+  padding:0 14px;              /* respiro interno */
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+}
+
+.gestione-voucher-page .service-checkbox{
+  width:20px;
+  height:20px;
+  accent-color:#c89c4f;        /* spunta oro */
+}
+
+/* Centra il blocco "Servizio effettuato" (oro + box bianco) */
+.gestione-voucher-page .service-line{
+  display: inline-flex;     /* si restringe alla larghezza del contenuto */
+  align-items: stretch;     /* stessa altezza tra oro e bianco */
+  column-gap: 2px;          /* stesso micro-gap */
+  width: fit-content;       /* override di eventuale width:100% */
+  max-width: none;
+  margin: 0 auto 25px;      /* centro orizzontale */
+}
+
+/* Note: larghezza fissa, centrato, solo resize verticale */
+.gestione-voucher-page textarea#note {
+  display: block;
+  width: 500px;          /* stessa larghezza dei blocchi sopra */
+  max-width: 100%;       /* non supera il contenitore su schermi piccoli */
+  margin: 6px auto 0;    /* centra orizzontalmente */
+  box-sizing: border-box;
+  resize: none;      /* vieta resize orizzontale */
+}
+
+/* Spazio extra tra i blocchi (Appuntamento + Nota) dello storico */
+.storico-group {
+  margin: 12px 0 14px;  /* aumenta/abbassa se vuoi più/meno spazio tra i gruppi */
+}
+
+

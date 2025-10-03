@@ -134,15 +134,26 @@
 
   </div>
 
-  <!-- Bottoni sotto al box -->
-  <div class="voucher-btn">
-    {% if voucher.status|lower != 'scaduta' %}
-      <a href="{{ url_for('gestisci', numero=voucher.numero) }}">
-        <button style="background-color: #d4a855; color: #222;">GESTISCI VOUCHER</button>
-      </a>
+<!-- Bottoni sotto al box -->
+<div class="voucher-btn">
+  {% if voucher.status|lower != 'scaduta' %}
+    <a href="{{ url_for('gestisci', numero=voucher.numero) }}">
+      <button style="background-color: #d4a855; color: #222;">GESTISCI VOUCHER</button>
+    </a>
+
+    {% if not by_gift %}
+    <a href="{{ url_for('assegna_card', numero=voucher.numero) }}">
+      <button style="background-color: #d4a855; color: #222;">ASSEGNA CARD</button>
+    </a>
     {% endif %}
-    <a href="/"><button style="background-color: #333; color: white;">CERCA UN ALTRO VOUCHER</button></a>
-  </div>
+  {% endif %}
+
+  <a href="/">
+    <button style="background-color: #333; color: white;">CERCA UN ALTRO VOUCHER</button>
+  </a>
+</div>
+
+
 
 </body>
 </html>

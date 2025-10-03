@@ -105,28 +105,30 @@
 
       {# ---- STORICO con note per appuntamento e senza doppio € ---- #}
       {% if voucher.storico %}
-        <br>
-        <div class="voucher-row">
-          <span class="voucher-icon">🪒</span>
-          <span class="voucher-label">STORICO:</span>
+  <br>
+  <div class="voucher-row">
+    <span class="voucher-icon">🪒</span>
+    <span class="voucher-label">STORICO:</span>
+  </div>
+
+  {% for valore in voucher.storico %}
+    <div class="storico-group">
+      <div class="voucher-row">
+        <span class="voucher-icon">📅</span>
+        <span class="voucher-label">Appuntamento {{ loop.index }}:</span>
+        <span class="voucher-data">Scalati {{ valore }}</span>
+      </div>
+
+      {% if voucher.storico_note_map and voucher.storico_note_map.get(loop.index) %}
+        <div class="voucher-row" style="margin-top:-2px;">
+          <span class="voucher-icon">🗒️</span>
+          <span class="voucher-label">Note:</span>
+          <span class="voucher-data">{{ voucher.storico_note_map.get(loop.index) }}</span>
         </div>
-
-        {% for valore in voucher.storico %}
-          <div class="voucher-row">
-            <span class="voucher-icon">📅</span>
-            <span class="voucher-label">Appuntamento {{ loop.index }}:</span>
-            <span class="voucher-data">Scalati {{ valore }}</span>
-          </div>
-
-          {% if voucher.storico_note_map and voucher.storico_note_map.get(loop.index) %}
-            <div class="voucher-row" style="margin-top:-2px;">
-              <span class="voucher-icon">🗒️</span>
-              <span class="voucher-label">Note:</span>
-              <span class="voucher-data">{{ voucher.storico_note_map.get(loop.index) }}</span>
-            </div>
-          {% endif %}
-        {% endfor %}
       {% endif %}
+    </div>
+  {% endfor %}
+{% endif %}
 
     {% endif %}
 

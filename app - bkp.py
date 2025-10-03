@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 
 from openpyxl import load_workbook
+from openpyxl.comments import Comment
 
 app = Flask(__name__)
 
@@ -37,6 +38,16 @@ def format_valore(valore):
     if num is None:
         return ""
     return f"€{int(num)}" if float(num).is_integer() else f"€{num:.2f}"
+
+def _norm_card(v):
+    """Normalizza il valore della colonna 'N° CARD' a stringa senza decimali."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return ""
+    s = str(v).strip()
+    # Trasforma '1234.0' -> '1234'
+    if s.endswith(".0"):
+        s = s[:-2]
+    return s
 
 # --- Ricerca voucher ---
 
@@ -121,94 +132,170 @@ def cerca_voucher(numero):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     errore = None
+
     if request.method == 'POST':
-        numero = request.form.get('numero', '').strip()
-        if numero:
-            if not numero.startswith('#'):
-                numero = f"#{numero}"
+        query = (request.form.get('numero') or '').strip()
+
+        # VOUCHER: 5 cifre -> cerca in colonna A (ORDINE)
+        if query.isdigit() and len(query) == 5:
+            numero = f"#{query}"
             risultato = cerca_voucher(numero)
             if risultato:
-                return render_template('voucher.html', voucher=risultato)
+                return render_template('voucher.html', voucher=risultato, by_gift=False)
             else:
                 errore = "Voucher non trovato. Controlla il numero inserito."
+
+        # GIFT: 4 cifre -> cerca in colonna B (N° CARD), rispettando gli zeri iniziali
+        elif query.isdigit() and len(query) == 4:
+            try:
+                df = pd.read_excel(EXCEL_PATH)
+            except Exception as e:
+                return f"Errore lettura Excel: {e}"
+
+            df.columns = df.columns.str.strip()
+
+            if 'N° CARD' not in df.columns or 'ORDINE' not in df.columns:
+                return "Colonne 'N° CARD' o 'ORDINE' non trovate nel file."
+
+            # normalizzazione: stringhe ripulite, rimozione '.0' e padding a 4 cifre
+            q = query.zfill(4)
+
+            def _norm4(v):
+                if v is None or (isinstance(v, float) and pd.isna(v)):
+                    return ""
+                s = str(v).strip()
+                if s.endswith('.0'):
+                    s = s[:-2]
+                # se sono solo cifre, pad a 4; se già '0125' resta uguale
+                if s.isdigit():
+                    s = s.zfill(4)
+                return s
+
+            cards = df['N° CARD'].apply(_norm4)
+            sel = cards == q
+
+            if sel.any():
+                ordine_val = str(df.loc[sel, 'ORDINE'].iloc[0]).strip()
+                if not ordine_val.startswith('#'):
+                    ordine_val = f"#{ordine_val}"
+                risultato = cerca_voucher(ordine_val)
+                if risultato:
+                    return render_template('voucher.html', voucher=risultato, by_gift=True)
+                else:
+                    errore = "Si è verificato un problema nel recupero della gift."
+            else:
+                errore = "Gift non ancora assegnata."
+
         else:
-            errore = "Inserisci un numero di voucher valido."
+            errore = "Inserisci 5 cifre (voucher) oppure 4 cifre (gift)."
+
     return render_template('index.html', errore=errore)
+
 
 @app.route('/gestisci', methods=['GET', 'POST'])
 def gestisci():
-    numero = request.args.get('numero', '').strip()
+    numero = (request.args.get('numero') or '').strip()
     if not numero:
         return "Numero voucher mancante"
 
     if numero.startswith('##'):
         numero = numero[1:]
 
-    df = pd.read_excel(EXCEL_PATH)
-    df.columns = df.columns.str.strip()
+    try:
+        df = pd.read_excel(EXCEL_PATH)
+    except Exception as e:
+        return f"Errore lettura Excel: {e}"
 
-    riga = df[df['ORDINE'].astype(str).str.strip() == numero]
-    if riga.empty:
+    df.columns = df.columns.str.strip()
+    sel = df['ORDINE'].astype(str).str.strip() == numero
+    if not sel.any():
         return "Voucher non trovato"
 
-    index = riga.index[0]
-    r = riga.iloc[0]
+    index = df[sel].index[0]
+    r = df.loc[index]
 
-    # Prima colonna scalatura libera
+    # prima colonna scalatura libera
     prossimo = None
     for i, col in enumerate(['1', '2', '3', '4', '5'], start=1):
-        if pd.isna(r[col]) or (isinstance(r[col], str) and r[col].strip() == ""):
+        val = r[col]
+        if pd.isna(val) or (isinstance(val, str) and val.strip() == ""):
             prossimo = i
             break
 
-    non_utilizzabile = prossimo is None
+    non_utilizzabile = (prossimo is None)
     label_appuntamento = f"Appuntamento {prossimo}" if prossimo else ""
 
     if request.method == 'POST':
         if non_utilizzabile:
             return "Voucher non più utilizzabile (scalature esaurite)"
 
-        wb = load_workbook(EXCEL_PATH)
-        ws = wb.active
-        excel_row = index + 2  # +1 header, +1 base 1
+        try:
+            wb = load_workbook(EXCEL_PATH)
+            ws = wb.active
+            excel_row = index + 2  # header +1
 
-        # Aggiorna N° Card
-        ws[f'B{excel_row}'] = request.form.get('card', '')
+            # aggiorna card (colonna B)
+            ws[f'B{excel_row}'] = request.form.get('card', '')
 
-        nota_form = (request.form.get('note') or '').strip()
+            nota_form = (request.form.get('note') or '').strip()
 
-        if not pd.isna(r['SERVIZIO']) and str(r['SERVIZIO']).strip() != "":
-            # Caso "Servizio effettuato" (checkbox) -> copia VALORE nella prima scalatura libera
-            if request.form.get('servizio_effettuato'):
-                valore = _parse_money(r['VALORE']) or 0.0
+            # se c'è un SERVIZIO -> checkbox
+            if not pd.isna(r['SERVIZIO']) and str(r['SERVIZIO']).strip() != "":
+                if request.form.get('servizio_effettuato'):
+                    valore = _parse_money(r['VALORE']) or 0.0
+                    col_letter = ['J', 'K', 'L', 'M', 'N'][prossimo - 1]
+                    target_addr = f'{col_letter}{excel_row}'
+                    ws[target_addr] = valore
+
+                    # >>> NEW: commento Excel sulla cella della scalatura
+                    if nota_form:
+                        cell = ws[target_addr]
+                        prev = cell.comment.text if cell.comment else ""
+                        txt = f"Servizio effettuato: {nota_form}"
+                        cell.comment = Comment((prev + "\n") if prev else "" + txt, "WebApp")
+
+                # nota generica in colonna NOTE (come prima)
+                if nota_form:
+                    existing = ws[f'P{excel_row}'].value or ''
+                    sep = '\n' if existing else ''
+                    ws[f'P{excel_row}'] = f"{existing}{sep}{nota_form}"
+
+            else:
+                # scalatura manuale
+                importo_txt = (request.form.get('scalatura') or '').strip()
+                imp = _parse_money(importo_txt)
+                if imp is None or imp <= 0:
+                    wb.close()
+                    return "Importo non valido"
+
                 col_letter = ['J', 'K', 'L', 'M', 'N'][prossimo - 1]
-                ws[f'{col_letter}{excel_row}'] = valore
-            # Nota generica: appendi (senza tag appuntamento)
-            if nota_form:
-                existing = ws[f'P{excel_row}'].value or ''
-                sep = '\n' if existing else ''
-                ws[f'P{excel_row}'] = f"{existing}{sep}{nota_form}"
-        else:
-            # Caso "scalatura manuale" (Appuntamento N)
-            importo_txt = request.form.get('scalatura', '').strip()
-            imp = _parse_money(importo_txt)
-            if imp is None or imp <= 0:
+                target_addr = f'{col_letter}{excel_row}'
+                ws[target_addr] = imp
+
+                # appendi nota taggata con numero appuntamento in colonna NOTE (come prima)
+                if nota_form:
+                    existing = ws[f'P{excel_row}'].value or ''
+                    sep = '\n' if existing else ''
+                    ws[f'P{excel_row}'] = f"{existing}{sep}[{prossimo}] {nota_form}"
+
+                    # >>> NEW: commento Excel sulla cella della scalatura
+                    cell = ws[target_addr]
+                    prev = cell.comment.text if cell.comment else ""
+                    txt = f"Appuntamento {prossimo}: {nota_form}"
+                    cell.comment = Comment((prev + "\n") if prev else "" + txt, "WebApp")
+
+            wb.save(EXCEL_PATH)
+            wb.close()
+        except Exception as e:
+            try:
                 wb.close()
-                return "Importo non valido"
-            col_letter = ['J', 'K', 'L', 'M', 'N'][prossimo - 1]
-            ws[f'{col_letter}{excel_row}'] = imp
+            except:
+                pass
+            return f"Errore scrittura Excel: {e}"
 
-            # --- NEW: Appendi nota taggata con numero appuntamento ---
-            if nota_form:
-                existing = ws[f'P{excel_row}'].value or ''
-                sep = '\n' if existing else ''
-                ws[f'P{excel_row}'] = f"{existing}{sep}[{prossimo}] {nota_form}"
+        return render_template('voucher.html', voucher=cerca_voucher(numero), by_gift=False)
 
-        wb.save(EXCEL_PATH)
-        wb.close()
-        return render_template('voucher.html', voucher=cerca_voucher(numero))
-
-    # GET: prepara dati per il template gestisci
+    # GET: prepara dati per la pagina (textarea note vuota)
     return render_template(
         'gestisci.html',
         label_appuntamento=label_appuntamento,
@@ -216,7 +303,7 @@ def gestisci():
         voucher={
             'numero': numero,
             'card': (r['N° CARD'] if not pd.isna(r['N° CARD']) else ''),
-            'note': (r['NOTE'] if not pd.isna(r['NOTE']) else ''),
+            'note': '',  # sempre vuota quando apri
             'servizio': (r['SERVIZIO'] if not pd.isna(r['SERVIZIO']) else ''),
             'valore': format_valore(r['VALORE']),
             'non_utilizzabile': non_utilizzabile,
@@ -224,6 +311,61 @@ def gestisci():
             'colonna_attiva': prossimo
         }
     )
+
+# --- NUOVA ROTTA: assegna card ---
+@app.route('/assegna-card', methods=['GET', 'POST'])
+def assegna_card():
+    numero = (request.args.get('numero') or '').strip()
+    if not numero:
+        return "Numero voucher mancante"
+
+    if numero.startswith('##'):
+        numero = numero[1:]
+
+    try:
+        df = pd.read_excel(EXCEL_PATH)
+    except Exception as e:
+        return f"Errore lettura Excel: {e}"
+
+    df.columns = df.columns.str.strip()
+    sel = df['ORDINE'].astype(str).str.strip() == numero
+    if not sel.any():
+        return "Voucher non trovato"
+
+    index = df[sel].index[0]
+    r = df.loc[index]
+
+    if request.method == 'POST':
+        card_val = (request.form.get('card') or '').strip()
+        if not card_val:
+            return render_template(
+                'assegna_card.html',
+                numero=numero,
+                valore_card='',
+                errore="Inserisci un numero card."
+            )
+
+        try:
+            wb = load_workbook(EXCEL_PATH)
+            ws = wb.active
+            excel_row = index + 2  # +1 header
+            # Colonna B = "N° CARD"
+            ws[f'B{excel_row}'] = card_val
+            wb.save(EXCEL_PATH)
+            wb.close()
+        except Exception as e:
+            try:
+                wb.close()
+            except:
+                pass
+            return f"Errore scrittura Excel: {e}"
+
+        # Torna al dettaglio voucher aggiornato
+        return render_template('voucher.html', voucher=cerca_voucher(numero), by_gift=False)
+
+    # GET: mostra form con valore esistente (se presente)
+    val_esistente = '' if pd.isna(r['N° CARD']) else str(r['N° CARD'])
+    return render_template('assegna_card.html', numero=numero, valore_card=val_esistente, errore=None)
 
 if __name__ == '__main__':
     app.run(debug=True)

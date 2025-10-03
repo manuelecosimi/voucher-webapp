@@ -434,4 +434,25 @@ footer {
   margin: 12px 0 14px;  /* aumenta/abbassa se vuoi più/meno spazio tra i gruppi */
 }
 
+/* === Uniforma i bottoni azione in basso: radius su tutti gli angoli === */
+.voucher-btn button,
+.voucher-btn a > button,
+.form-buttons button,
+button.back-btn,
+.back-btn {
+  border-radius: 8px !important;
+  padding: 12px 24px !important; /* allineati a SALVA/INDIETRO */
+  line-height: 1 !important;
+}
+
+/* Hover uniforme (opzionale) */
+.voucher-btn button:hover,
+.voucher-btn a > button:hover,
+.form-buttons button:hover,
+button.back-btn:hover,
+.back-btn:hover {
+  filter: brightness(1.05);
+}
+
+
 

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Assegna card</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="gestione-voucher-page">
+
+  <div class="voucher-box gestione-voucher-page">
+    <h1 class="voucher-title">Assegna card: {{ numero }}</h1>
+
+    {% if errore %}
+      <div class="voucher-warning">{{ errore }}</div>
+    {% endif %}
+
+    <form method="POST">
+      <div class="input-home-line" style="justify-content:center; margin-bottom:20px;">
+        <div class="input-home-label">Numero card</div>
+        <input
+          type="text"
+          name="card"
+          class="input-home-box"
+          placeholder="Es. 123456"
+          value="{{ valore_card }}"
+          inputmode="numeric"
+          pattern="[0-9]+"
+          autocomplete="off"
+          required
+        >
+      </div>
+
+      <div class="form-buttons" style="text-align:center; margin-top:10px;">
+        <button type="submit">SALVA</button>
+      </div>
+    </form>
+  </div>
+
+</body>
+</html>
