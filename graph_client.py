@@ -1,20 +1,23 @@
 import os
 import msal
 import requests
+from urllib.parse import quote
 
 MS_CLIENT_ID = os.getenv("MS_CLIENT_ID")
 MS_TENANT_ID = os.getenv("MS_TENANT_ID")
 MS_CLIENT_SECRET = os.getenv("MS_CLIENT_SECRET")
+MS_DRIVE_USER = os.getenv("MS_DRIVE_USER")  # es. nome.cognome@dominio.it
 
 # Scope per client credentials (sempre .default)
 SCOPES = ["https://graph.microsoft.com/.default"]
 AUTHORITY = f"https://login.microsoftonline.com/{MS_TENANT_ID}"
 
-# OneDrive percorso (es. "/VoucherApp/voucher-clienti.xlsx") viene passato da app.py
-# Qui usiamo Graph API con /me/drive se l'app è single-tenant con un user associato.
-# Per account “app-only” su drive di un utente specifico, conviene usare /users/{UPN}/drive.
-# Manteniamo /me/drive: con application permission punta al drive “predefinito” dell’app owner.
-ME_DRIVE = "https://graph.microsoft.com/v1.0/me/drive"
+# Drive base: se c'è MS_DRIVE_USER usiamo il suo OneDrive, altrimenti /me/drive
+if MS_DRIVE_USER:
+    BASE_DRIVE = f"https://graph.microsoft.com/v1.0/users/{MS_DRIVE_USER}/drive"
+else:
+    BASE_DRIVE = "https://graph.microsoft.com/v1.0/me/drive"
+
 
 class GraphClient:
     def __init__(self):
@@ -27,7 +30,7 @@ class GraphClient:
         )
 
     def _token(self):
-        # Prima la cache (nulla), poi client credentials
+        # Prima cache, poi client credentials
         result = self._app.acquire_token_silent(SCOPES, account=None)
         if not result:
             result = self._app.acquire_token_for_client(scopes=SCOPES)
@@ -38,9 +41,17 @@ class GraphClient:
     def _headers(self):
         return {"Authorization": f"Bearer {self._token()}"}
 
+    def _norm_path(self, item_path: str) -> str:
+        # Garantisce lo slash iniziale e fa URL-encode (spazi, caratteri speciali)
+        if not item_path:
+            raise ValueError("item_path vuoto")
+        if not item_path.startswith("/"):
+            item_path = "/" + item_path
+        return quote(item_path, safe="/")
+
     def _get_item_by_path(self, item_path: str):
-        # item_path come "/Cartella/file.xlsx"
-        url = f"{ME_DRIVE}/root:{item_path}"
+        path = self._norm_path(item_path)
+        url = f"{BASE_DRIVE}/root:{path}"
         r = requests.get(url, headers=self._headers())
         if r.status_code == 404:
             raise FileNotFoundError(f"File non trovato su OneDrive: {item_path}")
@@ -53,21 +64,23 @@ class GraphClient:
         r = requests.get(download_url, stream=True)
         r.raise_for_status()
         with open(local_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1024*512):
+            for chunk in r.iter_content(chunk_size=1024 * 512):
                 if chunk:
                     f.write(chunk)
 
     def upload_excel(self, local_path: str, item_path: str):
-        # Usa Upload semplice (<= 4MB) o crea una sessione se il file è più grande
         size = os.path.getsize(local_path)
+        path = self._norm_path(item_path)
+
         if size <= 4 * 1024 * 1024:
-            url = f"{ME_DRIVE}/root:{item_path}:/content"
+            # Upload semplice
+            url = f"{BASE_DRIVE}/root:{path}:/content"
             with open(local_path, "rb") as f:
                 r = requests.put(url, headers=self._headers(), data=f)
             r.raise_for_status()
         else:
             # Upload a sessione (resumable)
-            url = f"{ME_DRIVE}/root:{item_path}:/createUploadSession"
+            url = f"{BASE_DRIVE}/root:{path}:/createUploadSession"
             r = requests.post(url, headers=self._headers(), json={})
             r.raise_for_status()
             upload_url = r.json()["uploadUrl"]
