@@ -22,9 +22,8 @@ SCOPES_PERSONAL = ["Files.ReadWrite"]
 
 class GraphClient:
     def __init__(self):
-        # Se c'è il secret -> Business; altrimenti Personale con token cache
         self.mode = "business" if MS_CLIENT_SECRET else "personal"
-	print(f"[GRAPH] init mode={self.mode}")
+        print(f"[GRAPH] init mode={self.mode}")
 
         if self.mode == "business":
             if not (MS_CLIENT_ID and MS_TENANT_ID and MS_CLIENT_SECRET):
