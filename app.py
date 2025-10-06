@@ -16,6 +16,13 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# ---------- HEALTH CHECK PER RENDER ----------
+# endpoint ultra-leggero che non tocca Excel né OneDrive
+@app.get("/healthz")
+def healthz():
+    return "ok", 200
+# --------------------------------------------
+
 # --- Path robusto all'Excel ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(BASE_DIR, 'voucher-clienti.xlsx')
@@ -74,7 +81,6 @@ def _norm_card(v):
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return ""
     s = str(v).strip()
-    # Trasforma '1234.0' -> '1234'
     if s.endswith(".0"):
         s = s[:-2]
     return s
@@ -222,7 +228,6 @@ def index():
                 s = str(v).strip()
                 if s.endswith('.0'):
                     s = s[:-2]
-                # se sono solo cifre, pad a 4; se già '0125' resta uguale
                 if s.isdigit():
                     s = s.zfill(4)
                 return s
