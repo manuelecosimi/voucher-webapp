@@ -115,15 +115,13 @@ def _digits(s) -> str:
     return "".join(re.findall(r"\d+", str(s))) if s is not None else ""
 
 # >>> trova la colonna "SERVIZIO" in modo robusto
-def find_service_col(columns):
-    """
-    Ritorna il nome della colonna che inizia con 'SERVIZIO' (case-insensitive),
-    oppure None se non trovata.
-    """
+def find_note_col(columns):
+    """Trova la colonna NOTE anche se l'header è 'SERVIZIO / NOTE' o simili."""
     for c in columns:
         if c is None:
             continue
-        if str(c).strip().upper().startswith("SERVIZIO"):
+        s = str(c).strip().upper()
+        if "NOTE" in s:          # match robusto
             return c
     return None
 

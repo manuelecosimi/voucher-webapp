@@ -1,133 +1,36 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modifica voucher</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-  .voucher-box {
-      background-color: #1e1e1e;
-      padding: 30px;
-      border-radius: 10px;
-      width: 90%;
-      max-width: 500px;
-      margin: auto;
-      text-align: center;
-      box-shadow: 0 0 10px #000;
-  }
-
-  .form-group { margin-bottom: 20px; text-align: left; }
-
-  label { color: #d4af37; font-weight: bold; }
-
-  input[type="text"],
-  textarea {
-      width: 100%;
-      padding: 10px;
-      border-radius: 5px;
-      border: none;
-      margin-top: 5px;
-  }
-
-  textarea { background-color: #2e2e2e; color: white; }
-
-  button {
-      background-color: #d4af37;
-      color: black;
-      border: none;
-      padding: 10px 20px;
-      font-weight: bold;
-      border-radius: 5px;
-      cursor: pointer;
-  }
-
-  .back-btn {
-      background-color: #2e2e2e;
-      color: white;
-      margin-left: 10px;
-  }
-
-  .form-buttons { margin-top: 30px; text-align: center; }
-
-  .voucher-title {
-      color: #d4af37;
-      text-align: center;
-      margin-bottom: 30px;
-      font-size: 28px;
-  }
-
-  /* Allineamento coerente con home (oro + input) */
-  .input-home-line { align-items: stretch; }
-
-  /* ===== MOBILE (max-width: 640px) – stessi criteri di home/risultati ===== */
-  @media (max-width: 640px) {
-    .voucher-box{
-      width: 95%;
-      max-width: none;
-      padding: 16px;
-      margin: 0 16px;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modifica voucher</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .voucher-box { background-color:#1e1e1e; padding:30px; border-radius:10px; width:90%; max-width:500px; margin:auto; text-align:center; box-shadow:0 0 10px #000; }
+    .form-group { margin-bottom:20px; text-align:left; }
+    label { color:#d4af37; font-weight:bold; }
+    input[type="text"], textarea { width:100%; padding:10px; border-radius:5px; border:none; margin-top:5px; }
+    textarea { background-color:#2e2e2e; color:white; }
+    button { background-color:#d4af37; color:black; border:none; padding:10px 20px; font-weight:bold; border-radius:5px; cursor:pointer; }
+    .back-btn { background-color:#2e2e2e; color:white; margin-left:10px; }
+    .form-buttons { margin-top:30px; text-align:center; }
+    .voucher-title { color:#d4af37; text-align:center; margin-bottom:30px; font-size:28px; }
+    .input-home-line { align-items:stretch; }
+    @media (max-width:640px){
+      .voucher-box{ width:95%; max-width:none; padding:16px; margin:0 16px; }
+      .voucher-title{ font-size:1.4em; margin-bottom:16px; }
+      .form-group{ margin-bottom:14px; }
+      .form-group textarea{ min-height:110px; }
+      .input-home-line, .service-line{ width:100%; max-width:none; margin:0 auto 16px; column-gap:2px; align-items:stretch; }
+      .input-home-label{ height:40px; line-height:40px; padding:0 14px; border-radius:5px 0 0 5px; }
+      .euro-field .euro-input{ height:40px; padding:0 12px 0 36px; border-radius:0 5px 5px 0; }
+      .euro-symbol{ left:12px; top:50%; transform:translateY(-50%); }
+      .service-field{ height:40px; padding:0 14px; border-radius:0 5px 5px 0; }
+      .form-buttons{ display:flex; flex-direction:column; gap:12px; align-items:center; margin-top:18px; }
+      .form-buttons button{ width:100%; max-width:320px; border-radius:8px; }
+      .back-btn{ margin-left:0; }
     }
-
-    .voucher-title{
-      font-size: 1.4em;
-      margin-bottom: 16px;
-    }
-
-    .form-group{ margin-bottom: 14px; }
-    .form-group textarea{ min-height: 110px; }
-
-    /* blocchi oro+bianco: stessa altezza, micro-gap e radius, come home */
-    .input-home-line,
-    .service-line{
-      width: 100%;
-      max-width: none;
-      margin: 0 auto 16px;
-      column-gap: 2px;
-      align-items: stretch;
-    }
-
-    .input-home-label{
-      height: 40px;
-      line-height: 40px;
-      padding: 0 14px;
-      border-radius: 5px 0 0 5px;
-    }
-
-    .euro-field .euro-input{
-      height: 40px;
-      padding: 0 12px 0 36px; /* spazio per € */
-      border-radius: 0 5px 5px 0;
-    }
-    .euro-symbol{
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-    }
-
-    .service-field{
-      height: 40px;
-      padding: 0 14px;
-      border-radius: 0 5px 5px 0;
-    }
-
-    /* bottoni come su risultati: in colonna, full-width, radius coerente */
-    .form-buttons{
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      align-items: center;
-      margin-top: 18px;
-    }
-    .form-buttons button{
-      width: 100%;
-      max-width: 320px;
-      border-radius: 8px;
-    }
-    .back-btn{ margin-left: 0; }
-  }
-</style>
-
+  </style>
 </head>
 <body class="gestione-voucher-page">
 
@@ -135,26 +38,31 @@
     <h1 class="voucher-title">Gestisci voucher: {{ numero }}</h1>
 
     <form method="POST">
+      <!-- FIX: invia sempre anche il numero in POST -->
+      <input type="hidden" name="numero" value="{{ numero }}">
 
       {% if voucher.servizio %}
-        <!-- CASO: SERVIZIO PIENO -> checkbox (stessa altezza/spaziatura del blocco appuntamento) -->
+        <!-- CASO: SERVIZIO PIENO -> checkbox -->
         <div class="service-line">
           <div class="input-home-label">Servizio effettuato</div>
           <label class="service-field">
-            <input type="checkbox" id="servizio_effettuato" name="servizio_effettuato" class="service-checkbox">
+            <input type="checkbox" id="servizio_effettuato" name="servizio_effettuato" class="service-checkbox" value="1"><!-- FIX: value esplicito -->
           </label>
         </div>
       {% else %}
-        <!-- CASO: SERVIZIO VUOTO -> Appuntamento X + € fisso + placeholder "Es. 85" -->
+        <!-- CASO: SERVIZIO VUOTO -> Appuntamento X + € -->
         <div class="input-home-line">
           <div class="input-home-label">Appuntamento {{ voucher.prossimo_appuntamento }}</div>
           <div class="euro-field">
-            <input type="text"
-                   name="scalatura"
-                   class="euro-input euro-with-symbol"
-                   placeholder="Es. 85"
-                   inputmode="decimal"
-                   autocomplete="off">
+            <input
+              type="text"
+              name="scalatura"
+              class="euro-input euro-with-symbol"
+              placeholder="Es. 85"
+              inputmode="decimal"
+              autocomplete="off"
+              pattern="^\s*\d+([.,]\d{1,2})?\s*$"  <!-- FIX: valida 20 o 20,00/20.00 -->
+              oninput="this.value = this.value.replace(/[^\d.,]/g,'');"> <!-- FIX: sanifica -->
             <span class="euro-symbol">€</span>
           </div>
         </div>
