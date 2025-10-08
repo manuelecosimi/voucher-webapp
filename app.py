@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import os, time
 import re  # >>> FIX: ci serve per tenere solo le cifre
 
@@ -199,15 +199,25 @@ def cerca_voucher(numero, force_local: bool = False):
     # servizio sicuro
     servizio_val = values.get(servizio_col) if servizio_col else ""
 
-    # NOTE e DATA sicure
-    note_raw = values.get(note_col) or ""
-    _data_cell = values.get('DATA')
-    if isinstance(_data_cell, datetime):
+# NOTE e DATA sicure
+note_raw = values.get(note_col) or ""
+_data_cell = values.get('DATA')
+
+_data_str = ""
+try:
+    # datetime.datetime o pandas.Timestamp
+    if hasattr(_data_cell, "strftime"):
         _data_str = _data_cell.strftime("%d/%m/%Y")
+    # seriale Excel (numero giorni dall'epoch Excel)
+    elif isinstance(_data_cell, (int, float)) and _data_cell:
+        excel_epoch = datetime(1899, 12, 30)  # correzione per epoch Excel
+        _data_str = (excel_epoch + timedelta(days=float(_data_cell))).strftime("%d/%m/%Y")
+    # stringa già formattata
     elif isinstance(_data_cell, str):
         _data_str = _data_cell.strip()
-    else:
-        _data_str = ""
+except Exception:
+    _data_str = str(_data_cell).strip() if _data_cell else ""
+
 
     # mappa note per appuntamento (in NOTE salviamo "[N] testo")
     notes_map = {}
