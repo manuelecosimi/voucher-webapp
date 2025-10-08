@@ -114,14 +114,22 @@ def _norm_card(v):
 def _digits(s) -> str:
     return "".join(re.findall(r"\d+", str(s))) if s is not None else ""
 
-# >>> trova la colonna "SERVIZIO" in modo robusto
+# >>> FIX: trova la colonna "SERVIZIO" (prefix match, robusto)
+def find_service_col(columns):
+    for c in columns:
+        if c is None:
+            continue
+        if str(c).strip().upper().startswith("SERVIZIO"):
+            return c
+    return None
+
+# >>> FIX: trova la colonna NOTE anche se si chiama "SERVIZIO / NOTE"
 def find_note_col(columns):
-    """Trova la colonna NOTE anche se l'header è 'SERVIZIO / NOTE' o simili."""
     for c in columns:
         if c is None:
             continue
         s = str(c).strip().upper()
-        if "NOTE" in s:          # match robusto
+        if "NOTE" in s:
             return c
     return None
 
@@ -145,10 +153,9 @@ def cerca_voucher(numero, force_local: bool = False):
     ]
     ordine_col = headers.index("ORDINE") + 1
 
-    # individua colonna servizio (se esiste)
-    servizio_col = find_service_col(headers)
+    servizio_col = find_service_col(headers)         # >>> FIX
+    note_col = find_note_col(headers)                # >>> FIX
 
-    # >>> FIX: confronta versione "solo cifre"
     target = _digits(numero)
 
     found_row = None
@@ -189,21 +196,31 @@ def cerca_voucher(numero, force_local: bool = False):
         return num is not None and num != 0
     non_utilizzabile = all(_filled(values.get(c)) for c in ['1', '2', '3', '4', '5'])
 
-    # leggi servizio in modo sicuro
+    # servizio sicuro
     servizio_val = values.get(servizio_col) if servizio_col else ""
+
+    # NOTE: prendi dalla colonna giusta (anche "SERVIZIO / NOTE")
+    note_raw = values.get(note_col) or ""
+
+    # data sicura (datetime o stringa)  >>> FIX
+    _data_cell = values.get('DATA')
+    if isinstance(_data_cell, datetime):
+        _data_str = _data_cell.strftime("%d/%m/%Y")
+    elif isinstance(_data_cell, str):
+        _data_str = _data_cell.strip()
+    else:
+        _data_str = ""
 
     # mappa note per appuntamento (in NOTE salviamo "[N] testo")
     notes_map = {}
-    note_raw = values.get('NOTE') or ""
     if isinstance(note_raw, str):
-        import re
         for m in re.finditer(r"\[(\d)\]\s*(.+?)(?=(?:\s*\[\d\])|$)", note_raw, flags=re.S):
             idx = int(m.group(1))
             txt = m.group(2).strip().replace("\r", " ").replace("\n", " ")
             notes_map[idx] = txt
 
     return {
-        'numero': target,  # >>> FIX: ritorna il numero pulito
+        'numero': target,
         'ordine': values.get('ORDINE'),
         'status': "scaduta" if residuo_raw == 0 else "attiva",
         'valore': format_valore(valore_raw),
@@ -213,9 +230,9 @@ def cerca_voucher(numero, force_local: bool = False):
         'box': "✅" if values.get('BOX') else "",
         'card': values.get('CARD') or "",
         'email': values.get('CLIENTE \\ MAIL ORDINE'),
-        'data': values.get('DATA').strftime("%d/%m/%Y") if values.get('DATA') else "",
+        'data': _data_str,                           # >>> FIX
         'storico': storico,
-        'note': values.get('NOTE') or "",
+        'note': note_raw or "",
         'storico_note_map': notes_map,
         'non_utilizzabile': non_utilizzabile
     }
@@ -229,9 +246,8 @@ def index():
 
     if request.method == 'POST':
         query = (request.form.get('numero') or '').strip()
-        query_digits = _digits(query)  # >>> FIX: solo cifre
+        query_digits = _digits(query)
 
-        # VOUCHER: 5 cifre -> cerca in colonna A (ORDINE)
         if query_digits.isdigit() and len(query_digits) == 5:
             risultato = cerca_voucher(query_digits)
             if risultato:
@@ -239,7 +255,6 @@ def index():
             else:
                 errore = "Voucher non trovato. Controlla il numero inserito."
 
-        # GIFT: 4 cifre -> cerca in colonna B (N° CARD), rispettando gli zeri iniziali
         elif query_digits.isdigit() and len(query_digits) == 4:
             try:
                 sync_from_cloud()
@@ -269,7 +284,7 @@ def index():
 
             if sel.any():
                 ordine_val = str(df.loc[sel, 'ORDINE'].iloc[0]).strip()
-                ordine_digits = _digits(ordine_val)  # >>> FIX
+                ordine_digits = _digits(ordine_val)
                 risultato = cerca_voucher(ordine_digits)
                 if risultato:
                     return render_template('voucher.html', voucher=risultato, by_gift=True)
@@ -290,7 +305,6 @@ def gestisci():
     if not numero:
         return "Numero voucher mancante"
 
-    # normalizza a sole cifre
     numero_digits = _digits(numero)
 
     try:
@@ -309,7 +323,7 @@ def gestisci():
 
     serv_col = find_service_col(df.columns)
 
-    # prima colonna scalatura libera (da dataframe va bene)
+    # prima colonna scalatura libera
     prossimo = None
     for i, col in enumerate(['1', '2', '3', '4', '5'], start=1):
         val = r[col]
@@ -340,10 +354,12 @@ def gestisci():
 
             # colonne per scalature "1".."5" e NOTE ricavate dagli header
             idx_scal = {str(i): header_idx.get(str(i)) for i in range(1, 6)}
-            idx_note = header_idx.get('NOTE')
+            # >>> FIX: riconosci anche "SERVIZIO / NOTE"
+            note_header = find_note_col(header_idx.keys())
+            idx_note = header_idx.get(note_header) if note_header else None
             idx_card = header_idx.get('N° CARD')
 
-            # aggiorna card (se inviata) — colonna da header
+            # aggiorna card (se inviata)
             if idx_card:
                 ws[f'{get_column_letter(idx_card)}{excel_row}'] = request.form.get('card', '')
 
@@ -386,7 +402,9 @@ def gestisci():
             else:
                 # scalatura manuale: importo nel primo slot libero + commento nella stessa cella
                 importo_txt = (request.form.get('scalatura') or '').strip()
-                imp = _parse_money(importo_txt)
+                # >>> FIX: normalizza input tipo "20,00" o "€ 20"
+                importo_txt_norm = importo_txt.replace('€', '').replace('\xa0', ' ').strip().replace(',', '.')
+                imp = _parse_money(importo_txt_norm)
                 if imp is None or imp <= 0:
                     if wb: wb.close()
                     return "Importo non valido"
@@ -445,7 +463,7 @@ def assegna_card():
     if not numero:
         return "Numero voucher mancante"
 
-    numero_digits = _digits(numero)  # >>> FIX
+    numero_digits = _digits(numero)
 
     try:
         sync_from_cloud()
@@ -454,7 +472,7 @@ def assegna_card():
         return f"Errore lettura Excel: {e}"
 
     df.columns = df.columns.str.strip()
-    sel = df['ORDINE'].astype(str).apply(_digits) == numero_digits  # >>> FIX
+    sel = df['ORDINE'].astype(str).apply(_digits) == numero_digits
     if not sel.any():
         return "Voucher non trovato"
 
@@ -466,7 +484,7 @@ def assegna_card():
         if not card_val:
             return render_template(
                 'assegna_card.html',
-                numero=numero_digits,  # >>> FIX
+                numero=numero_digits,
                 valore_card='',
                 errore="Inserisci un numero card."
             )
@@ -483,8 +501,7 @@ def assegna_card():
             wb.close()
 
             ok = sync_to_cloud()
-            # Torna al dettaglio voucher aggiornato (se upload KO, leggi locale)
-            return render_template('voucher.html', voucher=cerca_voucher(numero_digits, force_local=not ok), by_gift=False)  # >>> FIX
+            return render_template('voucher.html', voucher=cerca_voucher(numero_digits, force_local=not ok), by_gift=False)
 
         except Exception as e:
             try:
@@ -494,9 +511,8 @@ def assegna_card():
                 pass
             return f"Errore scrittura Excel: {e}"
 
-    # GET: mostra form con valore esistente (se presente)
     val_esistente = '' if pd.isna(r['N° CARD']) else str(r['N° CARD'])
-    return render_template('assegna_card.html', numero=numero_digits, valore_card=val_esistente, errore=None)  # >>> FIX
+    return render_template('assegna_card.html', numero=numero_digits, valore_card=val_esistente, errore=None)
 
 if __name__ == '__main__':
     host = os.getenv("HOST", "127.0.0.1")
