@@ -2,6 +2,7 @@ from flask import Flask, render_template, request
 import pandas as pd
 from datetime import datetime
 import os, time
+import re  # >>> FIX: ci serve per tenere solo le cifre
 
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
@@ -108,6 +109,10 @@ def _norm_card(v):
         s = s[:-2]
     return s
 
+# >>> FIX: helper per tenere solo le cifre da input e da Excel
+def _digits(s) -> str:
+    return "".join(re.findall(r"\d+", str(s))) if s is not None else ""
+
 # >>> trova la colonna "SERVIZIO" in modo robusto
 def find_service_col(columns):
     """
@@ -144,10 +149,13 @@ def cerca_voucher(numero, force_local: bool = False):
     # individua colonna servizio (se esiste)
     servizio_col = find_service_col(headers)
 
+    # >>> FIX: confronta versione "solo cifre"
+    target = _digits(numero)
+
     found_row = None
     for row in ws.iter_rows(min_row=2, values_only=False):
         ordine_val = row[ordine_col - 1].value
-        if str(ordine_val).strip() == numero:
+        if _digits(ordine_val) == target:
             found_row = row
             break
 
@@ -196,7 +204,7 @@ def cerca_voucher(numero, force_local: bool = False):
             notes_map[idx] = txt
 
     return {
-        'numero': numero,
+        'numero': target,  # >>> FIX: ritorna il numero pulito
         'ordine': values.get('ORDINE'),
         'status': "scaduta" if residuo_raw == 0 else "attiva",
         'valore': format_valore(valore_raw),
@@ -222,18 +230,18 @@ def index():
 
     if request.method == 'POST':
         query = (request.form.get('numero') or '').strip()
+        query_digits = _digits(query)  # >>> FIX: solo cifre
 
         # VOUCHER: 5 cifre -> cerca in colonna A (ORDINE)
-        if query.isdigit() and len(query) == 5:
-            numero = f"#{query}"
-            risultato = cerca_voucher(numero)
+        if query_digits.isdigit() and len(query_digits) == 5:
+            risultato = cerca_voucher(query_digits)
             if risultato:
                 return render_template('voucher.html', voucher=risultato, by_gift=False)
             else:
                 errore = "Voucher non trovato. Controlla il numero inserito."
 
         # GIFT: 4 cifre -> cerca in colonna B (N° CARD), rispettando gli zeri iniziali
-        elif query.isdigit() and len(query) == 4:
+        elif query_digits.isdigit() and len(query_digits) == 4:
             try:
                 sync_from_cloud()
                 df = pd.read_excel(EXCEL_PATH)
@@ -245,7 +253,7 @@ def index():
             if 'N° CARD' not in df.columns or 'ORDINE' not in df.columns:
                 return "Colonne 'N° CARD' o 'ORDINE' non trovate nel file."
 
-            q = query.zfill(4)
+            q = query_digits.zfill(4)
 
             def _norm4(v):
                 if v is None or (isinstance(v, float) and pd.isna(v)):
@@ -262,9 +270,8 @@ def index():
 
             if sel.any():
                 ordine_val = str(df.loc[sel, 'ORDINE'].iloc[0]).strip()
-                if not ordine_val.startswith('#'):
-                    ordine_val = f"#{ordine_val}"
-                risultato = cerca_voucher(ordine_val)
+                ordine_digits = _digits(ordine_val)  # >>> FIX
+                risultato = cerca_voucher(ordine_digits)
                 if risultato:
                     return render_template('voucher.html', voucher=risultato, by_gift=True)
                 else:
@@ -284,8 +291,8 @@ def gestisci():
     if not numero:
         return "Numero voucher mancante"
 
-    if numero.startswith('##'):
-        numero = numero[1:]
+    # >>> FIX: normalizza sempre a sole cifre
+    numero_digits = _digits(numero)
 
     try:
         sync_from_cloud()
@@ -294,7 +301,7 @@ def gestisci():
         return f"Errore lettura Excel: {e}"
 
     df.columns = df.columns.str.strip()
-    sel = df['ORDINE'].astype(str).str.strip() == numero
+    sel = df['ORDINE'].astype(str).apply(_digits) == numero_digits  # >>> FIX
     if not sel.any():
         return "Voucher non trovato"
 
@@ -385,7 +392,7 @@ def gestisci():
             # upload su OneDrive dopo il salvataggio
             ok = sync_to_cloud()
             # Se l'upload è fallito (es. 423 Locked), NON riscaricare subito: mostra la versione locale
-            return render_template('voucher.html', voucher=cerca_voucher(numero, force_local=not ok), by_gift=False)
+            return render_template('voucher.html', voucher=cerca_voucher(numero_digits, force_local=not ok), by_gift=False)  # >>> FIX
 
         except Exception as e:
             try:
@@ -399,9 +406,9 @@ def gestisci():
     return render_template(
         'gestisci.html',
         label_appuntamento=label_appuntamento,
-        numero=numero,
+        numero=numero_digits,  # >>> FIX
         voucher={
-            'numero': numero,
+            'numero': numero_digits,  # >>> FIX
             'card': (r['N° CARD'] if not pd.isna(r['N° CARD']) else ''),
             'note': '',  # sempre vuota quando apri
             'servizio': (r.get(serv_col) if (serv_col and not pd.isna(r.get(serv_col))) else ''),
@@ -420,8 +427,7 @@ def assegna_card():
     if not numero:
         return "Numero voucher mancante"
 
-    if numero.startswith('##'):
-        numero = numero[1:]
+    numero_digits = _digits(numero)  # >>> FIX
 
     try:
         sync_from_cloud()
@@ -430,7 +436,7 @@ def assegna_card():
         return f"Errore lettura Excel: {e}"
 
     df.columns = df.columns.str.strip()
-    sel = df['ORDINE'].astype(str).str.strip() == numero
+    sel = df['ORDINE'].astype(str).apply(_digits) == numero_digits  # >>> FIX
     if not sel.any():
         return "Voucher non trovato"
 
@@ -442,7 +448,7 @@ def assegna_card():
         if not card_val:
             return render_template(
                 'assegna_card.html',
-                numero=numero,
+                numero=numero_digits,  # >>> FIX
                 valore_card='',
                 errore="Inserisci un numero card."
             )
@@ -460,7 +466,7 @@ def assegna_card():
 
             ok = sync_to_cloud()
             # Torna al dettaglio voucher aggiornato (se upload KO, leggi locale)
-            return render_template('voucher.html', voucher=cerca_voucher(numero, force_local=not ok), by_gift=False)
+            return render_template('voucher.html', voucher=cerca_voucher(numero_digits, force_local=not ok), by_gift=False)  # >>> FIX
 
         except Exception as e:
             try:
@@ -472,7 +478,7 @@ def assegna_card():
 
     # GET: mostra form con valore esistente (se presente)
     val_esistente = '' if pd.isna(r['N° CARD']) else str(r['N° CARD'])
-    return render_template('assegna_card.html', numero=numero, valore_card=val_esistente, errore=None)
+    return render_template('assegna_card.html', numero=numero_digits, valore_card=val_esistente, errore=None)  # >>> FIX
 
 if __name__ == '__main__':
     host = os.getenv("HOST", "127.0.0.1")
