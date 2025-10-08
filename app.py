@@ -413,6 +413,15 @@ def gestisci():
                     txt = f"Appuntamento {prossimo}: {nota_form}"
                     cell.comment = Comment(((prev + "\n") if prev else "") + txt, "WebApp")
 
+print("[DBG]",
+      "prossimo=", prossimo,
+      "target_addr=", target_addr,
+      "serv_pieno=", bool((r.get(serv_col) if serv_col else "")),
+      "chk=", bool(request.form.get('servizio_effettuato')),
+      "imp_raw=", (request.form.get('scalatura') or '').strip(),
+      "imp_norm=", (request.form.get('scalatura') or '').replace('€','').replace('\xa0',' ').strip().replace(',', '.'),
+      "nota=", (request.form.get('note') or '').strip())
+
             wb.save(EXCEL_PATH)
             wb.close()
 
