@@ -6,6 +6,7 @@ import re  # >>> FIX: ci serve per tenere solo le cifre
 
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
+from openpyxl.utils import get_column_letter
 
 # >>> OneDrive / MS Graph (rimane importabile; lo useremo solo se USE_CLOUD=1)
 import requests
@@ -291,7 +292,7 @@ def gestisci():
     if not numero:
         return "Numero voucher mancante"
 
-    # >>> FIX: normalizza sempre a sole cifre
+    # normalizza a sole cifre
     numero_digits = _digits(numero)
 
     try:
@@ -301,7 +302,7 @@ def gestisci():
         return f"Errore lettura Excel: {e}"
 
     df.columns = df.columns.str.strip()
-    sel = df['ORDINE'].astype(str).apply(_digits) == numero_digits  # >>> FIX
+    sel = df['ORDINE'].astype(str).apply(_digits) == numero_digits
     if not sel.any():
         return "Voucher non trovato"
 
@@ -310,7 +311,7 @@ def gestisci():
 
     serv_col = find_service_col(df.columns)
 
-    # prima colonna scalatura libera
+    # prima colonna scalatura libera (da dataframe va bene)
     prossimo = None
     for i, col in enumerate(['1', '2', '3', '4', '5'], start=1):
         val = r[col]
@@ -330,69 +331,88 @@ def gestisci():
             sync_from_cloud()
             wb = load_workbook(EXCEL_PATH)
             ws = wb.active
-            excel_row = index + 2  # header +1
+            excel_row = index + 2  # +1 header
 
-            # aggiorna card (colonna B)
-            ws[f'B{excel_row}'] = request.form.get('card', '')
+            # --- mappa header -> indice colonna (dinamico) ---
+            header_cells = next(ws.iter_rows(min_row=1, max_row=1))
+            header_idx = {}
+            for i, cell in enumerate(header_cells, start=1):
+                key = (cell.value.strip() if isinstance(cell.value, str) else str(cell.value)) if cell.value is not None else ""
+                header_idx[key] = i
+
+            # colonne per scalature "1".."5" e NOTE ricavate dagli header
+            idx_scal = {str(i): header_idx.get(str(i)) for i in range(1, 6)}
+            idx_note = header_idx.get('NOTE')
+            idx_card = header_idx.get('N° CARD')
+
+            # aggiorna card (se inviata) — colonna da header
+            if idx_card:
+                ws[f'{get_column_letter(idx_card)}{excel_row}'] = request.form.get('card', '')
 
             nota_form = (request.form.get('note') or '').strip()
+
+            # colonna target della scalatura corrente
+            col_idx = idx_scal.get(str(prossimo))
+            if not col_idx:
+                if wb: wb.close()
+                return "Struttura file non valida: colonne 1-5 non trovate."
+
+            col_letter = get_column_letter(col_idx)
+            target_addr = f'{col_letter}{excel_row}'
+
+            # indirizzo colonna NOTE (se presente)
+            note_addr = f'{get_column_letter(idx_note)}{excel_row}' if idx_note else None
 
             # lettura sicura del servizio
             serv_val = r.get(serv_col) if serv_col else None
 
-            # se c'è un SERVIZIO -> checkbox
             if serv_val is not None and str(serv_val).strip() != "":
+                # checkbox "Servizio effettuato": copia il VALORE intero nella 1a libera
                 if request.form.get('servizio_effettuato'):
                     valore = _parse_money(r['VALORE']) or 0.0
-                    col_letter = ['J', 'K', 'L', 'M', 'N'][prossimo - 1]
-                    target_addr = f'{col_letter}{excel_row}'
                     ws[target_addr] = valore
 
-                    # commento Excel sulla cella della scalatura
+                    # commento Excel sulla cella giusta
                     if nota_form:
                         cell = ws[target_addr]
                         prev = cell.comment.text if cell.comment else ""
                         txt = f"Servizio effettuato: {nota_form}"
-                        cell.comment = Comment((prev + "\n") if prev else "" + txt, "WebApp")
+                        cell.comment = Comment(((prev + "\n") if prev else "") + txt, "WebApp")
 
-                # nota generica in colonna NOTE
-                if nota_form:
-                    existing = ws[f'P{excel_row}'].value or ''
+                # nota generica in NOTE (se esiste)
+                if nota_form and note_addr:
+                    existing = ws[note_addr].value or ''
                     sep = '\n' if existing else ''
-                    ws[f'P{excel_row}'] = f"{existing}{sep}{nota_form}"
+                    ws[note_addr].value = f"{existing}{sep}{nota_form}"
 
             else:
-                # scalatura manuale
+                # scalatura manuale: importo nel primo slot libero + commento nella stessa cella
                 importo_txt = (request.form.get('scalatura') or '').strip()
                 imp = _parse_money(importo_txt)
                 if imp is None or imp <= 0:
-                    if wb:
-                        wb.close()
+                    if wb: wb.close()
                     return "Importo non valido"
 
-                col_letter = ['J', 'K', 'L', 'M', 'N'][prossimo - 1]
-                target_addr = f'{col_letter}{excel_row}'
                 ws[target_addr] = imp
 
-                # nota taggata con numero appuntamento in colonna NOTE
                 if nota_form:
-                    existing = ws[f'P{excel_row}'].value or ''
-                    sep = '\n' if existing else ''
-                    ws[f'P{excel_row}'] = f"{existing}{sep}[{prossimo}] {nota_form}"
+                    # nota taggata anche in NOTE (se presente)
+                    if note_addr:
+                        existing = ws[note_addr].value or ''
+                        sep = '\n' if existing else ''
+                        ws[note_addr].value = f"{existing}{sep}[{prossimo}] {nota_form}"
 
-                    # commento Excel sulla cella
+                    # commento sulla cella della scalatura
                     cell = ws[target_addr]
                     prev = cell.comment.text if cell.comment else ""
                     txt = f"Appuntamento {prossimo}: {nota_form}"
-                    cell.comment = Comment((prev + "\n") if prev else "" + txt, "WebApp")
+                    cell.comment = Comment(((prev + "\n") if prev else "") + txt, "WebApp")
 
             wb.save(EXCEL_PATH)
             wb.close()
 
-            # upload su OneDrive dopo il salvataggio
             ok = sync_to_cloud()
-            # Se l'upload è fallito (es. 423 Locked), NON riscaricare subito: mostra la versione locale
-            return render_template('voucher.html', voucher=cerca_voucher(numero_digits, force_local=not ok), by_gift=False)  # >>> FIX
+            return render_template('voucher.html', voucher=cerca_voucher(numero_digits, force_local=not ok), by_gift=False)
 
         except Exception as e:
             try:
@@ -406,11 +426,11 @@ def gestisci():
     return render_template(
         'gestisci.html',
         label_appuntamento=label_appuntamento,
-        numero=numero_digits,  # >>> FIX
+        numero=numero_digits,
         voucher={
-            'numero': numero_digits,  # >>> FIX
+            'numero': numero_digits,
             'card': (r['N° CARD'] if not pd.isna(r['N° CARD']) else ''),
-            'note': '',  # sempre vuota quando apri
+            'note': '',
             'servizio': (r.get(serv_col) if (serv_col and not pd.isna(r.get(serv_col))) else ''),
             'valore': format_valore(r['VALORE']),
             'non_utilizzabile': non_utilizzabile,
