@@ -153,8 +153,8 @@ def cerca_voucher(numero, force_local: bool = False):
     ]
     ordine_col = headers.index("ORDINE") + 1
 
-    servizio_col = find_service_col(headers)         # >>> FIX
-    note_col = find_note_col(headers)                # >>> FIX
+    servizio_col = find_service_col(headers)
+    note_col = find_note_col(headers)
 
     target = _digits(numero)
 
@@ -199,10 +199,8 @@ def cerca_voucher(numero, force_local: bool = False):
     # servizio sicuro
     servizio_val = values.get(servizio_col) if servizio_col else ""
 
-    # NOTE: prendi dalla colonna giusta (anche "SERVIZIO / NOTE")
+    # NOTE e DATA sicure
     note_raw = values.get(note_col) or ""
-
-    # data sicura (datetime o stringa)  >>> FIX
     _data_cell = values.get('DATA')
     if isinstance(_data_cell, datetime):
         _data_str = _data_cell.strftime("%d/%m/%Y")
@@ -230,7 +228,7 @@ def cerca_voucher(numero, force_local: bool = False):
         'box': "✅" if values.get('BOX') else "",
         'card': values.get('CARD') or "",
         'email': values.get('CLIENTE \\ MAIL ORDINE'),
-        'data': _data_str,                           # >>> FIX
+        'data': _data_str,
         'storico': storico,
         'note': note_raw or "",
         'storico_note_map': notes_map,
@@ -301,7 +299,7 @@ def index():
 
 @app.route('/gestisci', methods=['GET', 'POST'])
 def gestisci():
-    numero = (request.args.get('numero') or '').strip()
+    numero = ((request.args.get('numero') or request.form.get('numero')) or '').strip()  # <<< FIX
     if not numero:
         return "Numero voucher mancante"
 
@@ -352,9 +350,8 @@ def gestisci():
                 key = (cell.value.strip() if isinstance(cell.value, str) else str(cell.value)) if cell.value is not None else ""
                 header_idx[key] = i
 
-            # colonne per scalature "1".."5" e NOTE ricavate dagli header
             idx_scal = {str(i): header_idx.get(str(i)) for i in range(1, 6)}
-            # >>> FIX: riconosci anche "SERVIZIO / NOTE"
+            # NOTA: calcoliamo idx_note ma NON lo usiamo più per scrivere in O
             note_header = find_note_col(header_idx.keys())
             idx_note = header_idx.get(note_header) if note_header else None
             idx_card = header_idx.get('N° CARD')
@@ -374,35 +371,23 @@ def gestisci():
             col_letter = get_column_letter(col_idx)
             target_addr = f'{col_letter}{excel_row}'
 
-            # indirizzo colonna NOTE (se presente)
-            note_addr = f'{get_column_letter(idx_note)}{excel_row}' if idx_note else None
-
             # lettura sicura del servizio
             serv_val = r.get(serv_col) if serv_col else None
 
             if serv_val is not None and str(serv_val).strip() != "":
-                # checkbox "Servizio effettuato": copia il VALORE intero nella 1a libera
                 if request.form.get('servizio_effettuato'):
                     valore = _parse_money(r['VALORE']) or 0.0
                     ws[target_addr] = valore
-
-                    # commento Excel sulla cella giusta
                     if nota_form:
                         cell = ws[target_addr]
                         prev = cell.comment.text if cell.comment else ""
                         txt = f"Servizio effettuato: {nota_form}"
                         cell.comment = Comment(((prev + "\n") if prev else "") + txt, "WebApp")
 
-                # nota generica in NOTE (se esiste)
-                if nota_form and note_addr:
-                    existing = ws[note_addr].value or ''
-                    sep = '\n' if existing else ''
-                    ws[note_addr].value = f"{existing}{sep}{nota_form}"
+                # >>> RIMOSSO: niente più scrittura su colonna O
 
             else:
-                # scalatura manuale: importo nel primo slot libero + commento nella stessa cella
                 importo_txt = (request.form.get('scalatura') or '').strip()
-                # >>> FIX: normalizza input tipo "20,00" o "€ 20"
                 importo_txt_norm = importo_txt.replace('€', '').replace('\xa0', ' ').strip().replace(',', '.')
                 imp = _parse_money(importo_txt_norm)
                 if imp is None or imp <= 0:
@@ -412,13 +397,7 @@ def gestisci():
                 ws[target_addr] = imp
 
                 if nota_form:
-                    # nota taggata anche in NOTE (se presente)
-                    if note_addr:
-                        existing = ws[note_addr].value or ''
-                        sep = '\n' if existing else ''
-                        ws[note_addr].value = f"{existing}{sep}[{prossimo}] {nota_form}"
-
-                    # commento sulla cella della scalatura
+                    # >>> RIMOSSO: niente più scrittura su colonna O
                     cell = ws[target_addr]
                     prev = cell.comment.text if cell.comment else ""
                     txt = f"Appuntamento {prossimo}: {nota_form}"
