@@ -47,3 +47,7 @@ azure-info-app.txt
 
 # Varie
 *.bak
+
+templates/*Copia*.html
+templates/*BKP*.html
+
