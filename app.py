@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request
 import pandas as pd
 from datetime import datetime
-import os
+import os, time
 
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
@@ -16,11 +16,9 @@ from dotenv import load_dotenv
 env_file = ".env.dev" if os.path.exists(".env.dev") else ".env"
 load_dotenv(env_file)
 
-DEV_MODE = os.getenv("DEV_MODE") == "1"        # in locale: 1
-USE_CLOUD = os.getenv("USE_CLOUD") == "1"      # in locale: 0
-
-# <<< NEW: flag per saltare del tutto le sync (comodo in locale)
-SKIP_CLOUD = os.getenv("SKIP_CLOUD") == "1"
+DEV_MODE  = os.getenv("DEV_MODE")  == "1"   # in locale: 1
+USE_CLOUD = os.getenv("USE_CLOUD") == "1"   # in locale: 0
+SKIP_CLOUD = os.getenv("SKIP_CLOUD") == "1" # per disabilitare le sync se serve
 # ------------------------------------------------------------
 
 app = Flask(__name__)
@@ -50,29 +48,27 @@ if USE_CLOUD:
 
 def sync_from_cloud():
     """Scarica l'Excel da OneDrive prima di ogni lettura (no-op in locale o se SKIP_CLOUD=1)."""
-    # <<< NEW
-    if SKIP_CLOUD:
-        return
-    # >>>
-    if not USE_CLOUD or graph is None:
+    if SKIP_CLOUD or not USE_CLOUD or graph is None:
         return
     try:
         graph.download_excel(EXCEL_PATH, ONEDRIVE_PATH)
     except Exception as e:
         print(f"[SYNC] download da OneDrive saltato: {e}")
 
-def sync_to_cloud():
-    """Carica l'Excel su OneDrive dopo ogni salvataggio (no-op in locale o se SKIP_CLOUD=1)."""
-    # <<< NEW
-    if SKIP_CLOUD:
-        return
-    # >>>
-    if not USE_CLOUD or graph is None:
-        return
+def sync_to_cloud() -> bool:
+    """
+    Carica l'Excel su OneDrive dopo ogni salvataggio.
+    Ritorna True se ok, False se fallito (es. 423 Locked).
+    """
+    if SKIP_CLOUD or not USE_CLOUD or graph is None:
+        return True
     try:
         graph.upload_excel(EXCEL_PATH, ONEDRIVE_PATH)
+        print("[SYNC] upload completato su OneDrive")
+        return True
     except Exception as e:
         print(f"[SYNC] upload verso OneDrive fallito/ritardato: {e}")
+        return False
 # <<< END NEW
 
 
@@ -128,9 +124,13 @@ def find_service_col(columns):
 
 # --- Ricerca voucher ---
 
-def cerca_voucher(numero):
-    # >>> sempre sync prima di leggere (in dev locale è no-op se SKIP_CLOUD=1)
-    sync_from_cloud()
+def cerca_voucher(numero, force_local: bool = False):
+    """
+    Se force_local=True NON scarica dal cloud prima di leggere (utile subito dopo un salvataggio
+    in cui l'upload è fallito: evitiamo di sovrascrivere con la versione vecchia).
+    """
+    if not force_local:
+        sync_from_cloud()
 
     wb = load_workbook(EXCEL_PATH, data_only=True)
     ws = wb.active
@@ -141,7 +141,7 @@ def cerca_voucher(numero):
     ]
     ordine_col = headers.index("ORDINE") + 1
 
-    # >>> individua colonna servizio (se esiste)
+    # individua colonna servizio (se esiste)
     servizio_col = find_service_col(headers)
 
     found_row = None
@@ -382,8 +382,10 @@ def gestisci():
             wb.save(EXCEL_PATH)
             wb.close()
 
-            # upload su OneDrive dopo il salvataggio (no-op in locale o se SKIP_CLOUD=1)
-            sync_to_cloud()
+            # upload su OneDrive dopo il salvataggio
+            ok = sync_to_cloud()
+            # Se l'upload è fallito (es. 423 Locked), NON riscaricare subito: mostra la versione locale
+            return render_template('voucher.html', voucher=cerca_voucher(numero, force_local=not ok), by_gift=False)
 
         except Exception as e:
             try:
@@ -392,8 +394,6 @@ def gestisci():
             except:
                 pass
             return f"Errore scrittura Excel: {e}"
-
-        return render_template('voucher.html', voucher=cerca_voucher(numero), by_gift=False)
 
     # GET: prepara dati per la pagina (textarea note vuota)
     return render_template(
@@ -458,8 +458,9 @@ def assegna_card():
             wb.save(EXCEL_PATH)
             wb.close()
 
-            # upload su OneDrive dopo il salvataggio (no-op in locale o se SKIP_CLOUD=1)
-            sync_to_cloud()
+            ok = sync_to_cloud()
+            # Torna al dettaglio voucher aggiornato (se upload KO, leggi locale)
+            return render_template('voucher.html', voucher=cerca_voucher(numero, force_local=not ok), by_gift=False)
 
         except Exception as e:
             try:
@@ -468,9 +469,6 @@ def assegna_card():
             except:
                 pass
             return f"Errore scrittura Excel: {e}"
-
-        # Torna al dettaglio voucher aggiornato
-        return render_template('voucher.html', voucher=cerca_voucher(numero), by_gift=False)
 
     # GET: mostra form con valore esistente (se presente)
     val_esistente = '' if pd.isna(r['N° CARD']) else str(r['N° CARD'])
