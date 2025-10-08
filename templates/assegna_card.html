@@ -1,9 +1,11 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Assegna card</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
 </head>
 <body class="gestione-voucher-page">
 
@@ -15,23 +17,27 @@
     {% endif %}
 
     <form method="POST">
+      <!-- Stesso layout di "Appuntamento": etichetta oro + input bianco, stessa altezza -->
       <div class="input-home-line" style="justify-content:center; margin-bottom:20px;">
         <div class="input-home-label">Numero card</div>
-        <input
-          type="text"
-          name="card"
-          class="input-home-box"
-          placeholder="Es. 123456"
-          value="{{ valore_card }}"
-          inputmode="numeric"
-          pattern="[0-9]+"
-          autocomplete="off"
-          required
-        >
+        <div class="euro-field">
+          <input
+            type="text"
+            name="card"
+            class="euro-input"
+            placeholder="Es. 123456"
+            value="{{ valore_card }}"
+            inputmode="numeric"
+            pattern="[0-9]+"
+            autocomplete="off"
+            required
+          >
+        </div>
       </div>
 
       <div class="form-buttons" style="text-align:center; margin-top:10px;">
         <button type="submit">SALVA</button>
+        <button type="button" class="back-btn" onclick="history.back()">INDIETRO</button>
       </div>
     </form>
   </div>

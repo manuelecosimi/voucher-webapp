@@ -6,18 +6,26 @@ import os
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
 
-# >>> NEW: import OneDrive / MS Graph
+# >>> OneDrive / MS Graph (rimane importabile; lo useremo solo se USE_CLOUD=1)
 import requests
 import msal
 from dotenv import load_dotenv
 
-# carica automaticamente le variabili in .env (se presenti)
-load_dotenv()
+# -------------------- ENV & MODALITÀ DEV --------------------
+# Carica .env.dev se esiste, altrimenti .env (prod)
+env_file = ".env.dev" if os.path.exists(".env.dev") else ".env"
+load_dotenv(env_file)
+
+DEV_MODE = os.getenv("DEV_MODE") == "1"        # in locale: 1
+USE_CLOUD = os.getenv("USE_CLOUD") == "1"      # in locale: 0
+
+# <<< NEW: flag per saltare del tutto le sync (comodo in locale)
+SKIP_CLOUD = os.getenv("SKIP_CLOUD") == "1"
+# ------------------------------------------------------------
 
 app = Flask(__name__)
 
 # ---------- HEALTH CHECK PER RENDER ----------
-# endpoint ultra-leggero che non tocca Excel né OneDrive
 @app.get("/healthz")
 def healthz():
     return "ok", 200
@@ -25,23 +33,42 @@ def healthz():
 
 # --- Path robusto all'Excel ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-EXCEL_PATH = os.path.join(BASE_DIR, 'voucher-clienti.xlsx')
 
-# >>> NEW: client OneDrive (mettilo DOPO EXCEL_PATH)
-from graph_client import GraphClient
+# In dev locale (USE_CLOUD=0) usa sempre il file locale
+if DEV_MODE and not USE_CLOUD:
+    EXCEL_PATH = os.path.join(BASE_DIR, os.getenv("LOCAL_EXCEL_PATH", "voucher-clienti.xlsx"))
+else:
+    EXCEL_PATH = os.path.join(BASE_DIR, "voucher-clienti.xlsx")
 
-ONEDRIVE_PATH = os.getenv("ONEDRIVE_EXCEL_PATH", "/voucher-clienti.xlsx")
-graph = GraphClient()
+# >>> Client OneDrive usato solo se USE_CLOUD=1
+graph = None
+ONEDRIVE_PATH = None
+if USE_CLOUD:
+    from graph_client import GraphClient
+    ONEDRIVE_PATH = os.getenv("ONEDRIVE_EXCEL_PATH", "/voucher-clienti.xlsx")
+    graph = GraphClient()
 
 def sync_from_cloud():
-    """Scarica l'Excel da OneDrive prima di ogni lettura (non blocca in caso di errore)."""
+    """Scarica l'Excel da OneDrive prima di ogni lettura (no-op in locale o se SKIP_CLOUD=1)."""
+    # <<< NEW
+    if SKIP_CLOUD:
+        return
+    # >>>
+    if not USE_CLOUD or graph is None:
+        return
     try:
         graph.download_excel(EXCEL_PATH, ONEDRIVE_PATH)
     except Exception as e:
         print(f"[SYNC] download da OneDrive saltato: {e}")
 
 def sync_to_cloud():
-    """Carica l'Excel su OneDrive dopo ogni salvataggio (non blocca in caso di errore)."""
+    """Carica l'Excel su OneDrive dopo ogni salvataggio (no-op in locale o se SKIP_CLOUD=1)."""
+    # <<< NEW
+    if SKIP_CLOUD:
+        return
+    # >>>
+    if not USE_CLOUD or graph is None:
+        return
     try:
         graph.upload_excel(EXCEL_PATH, ONEDRIVE_PATH)
     except Exception as e:
@@ -85,7 +112,7 @@ def _norm_card(v):
         s = s[:-2]
     return s
 
-# >>> NEW: trova la colonna "SERVIZIO" in modo robusto
+# >>> trova la colonna "SERVIZIO" in modo robusto
 def find_service_col(columns):
     """
     Ritorna il nome della colonna che inizia con 'SERVIZIO' (case-insensitive),
@@ -102,7 +129,7 @@ def find_service_col(columns):
 # --- Ricerca voucher ---
 
 def cerca_voucher(numero):
-    # >>> NEW: sempre sync prima di leggere
+    # >>> sempre sync prima di leggere (in dev locale è no-op se SKIP_CLOUD=1)
     sync_from_cloud()
 
     wb = load_workbook(EXCEL_PATH, data_only=True)
@@ -114,7 +141,7 @@ def cerca_voucher(numero):
     ]
     ordine_col = headers.index("ORDINE") + 1
 
-    # >>> NEW: individua colonna servizio (se esiste)
+    # >>> individua colonna servizio (se esiste)
     servizio_col = find_service_col(headers)
 
     found_row = None
@@ -155,10 +182,10 @@ def cerca_voucher(numero):
         return num is not None and num != 0
     non_utilizzabile = all(_filled(values.get(c)) for c in ['1', '2', '3', '4', '5'])
 
-    # >>> NEW: leggi servizio in modo sicuro
+    # leggi servizio in modo sicuro
     servizio_val = values.get(servizio_col) if servizio_col else ""
 
-    # --- NEW: mappa note per appuntamento (in NOTE salviamo "[N] testo") ---
+    # mappa note per appuntamento (in NOTE salviamo "[N] testo")
     notes_map = {}
     note_raw = values.get('NOTE') or ""
     if isinstance(note_raw, str):
@@ -182,7 +209,7 @@ def cerca_voucher(numero):
         'data': values.get('DATA').strftime("%d/%m/%Y") if values.get('DATA') else "",
         'storico': storico,
         'note': values.get('NOTE') or "",
-        'storico_note_map': notes_map,   # --- NEW ---
+        'storico_note_map': notes_map,
         'non_utilizzabile': non_utilizzabile
     }
 
@@ -208,7 +235,6 @@ def index():
         # GIFT: 4 cifre -> cerca in colonna B (N° CARD), rispettando gli zeri iniziali
         elif query.isdigit() and len(query) == 4:
             try:
-                # >>> NEW: sync prima di leggere con pandas
                 sync_from_cloud()
                 df = pd.read_excel(EXCEL_PATH)
             except Exception as e:
@@ -219,7 +245,6 @@ def index():
             if 'N° CARD' not in df.columns or 'ORDINE' not in df.columns:
                 return "Colonne 'N° CARD' o 'ORDINE' non trovate nel file."
 
-            # normalizzazione: stringhe ripulite, rimozione '.0' e padding a 4 cifre
             q = query.zfill(4)
 
             def _norm4(v):
@@ -263,7 +288,6 @@ def gestisci():
         numero = numero[1:]
 
     try:
-        # >>> NEW: sync prima di leggere con pandas
         sync_from_cloud()
         df = pd.read_excel(EXCEL_PATH)
     except Exception as e:
@@ -277,7 +301,6 @@ def gestisci():
     index = df[sel].index[0]
     r = df.loc[index]
 
-    # >>> NEW: individua colonna servizio in DataFrame
     serv_col = find_service_col(df.columns)
 
     # prima colonna scalatura libera
@@ -297,7 +320,6 @@ def gestisci():
 
         wb = None
         try:
-            # >>> NEW: sync prima di aprire in scrittura
             sync_from_cloud()
             wb = load_workbook(EXCEL_PATH)
             ws = wb.active
@@ -308,7 +330,7 @@ def gestisci():
 
             nota_form = (request.form.get('note') or '').strip()
 
-            # >>> NEW: lettura sicura del servizio
+            # lettura sicura del servizio
             serv_val = r.get(serv_col) if serv_col else None
 
             # se c'è un SERVIZIO -> checkbox
@@ -319,14 +341,14 @@ def gestisci():
                     target_addr = f'{col_letter}{excel_row}'
                     ws[target_addr] = valore
 
-                    # >>> NEW: commento Excel sulla cella della scalatura
+                    # commento Excel sulla cella della scalatura
                     if nota_form:
                         cell = ws[target_addr]
                         prev = cell.comment.text if cell.comment else ""
                         txt = f"Servizio effettuato: {nota_form}"
                         cell.comment = Comment((prev + "\n") if prev else "" + txt, "WebApp")
 
-                # nota generica in colonna NOTE (come prima)
+                # nota generica in colonna NOTE
                 if nota_form:
                     existing = ws[f'P{excel_row}'].value or ''
                     sep = '\n' if existing else ''
@@ -345,13 +367,13 @@ def gestisci():
                 target_addr = f'{col_letter}{excel_row}'
                 ws[target_addr] = imp
 
-                # appendi nota taggata con numero appuntamento in colonna NOTE (come prima)
+                # nota taggata con numero appuntamento in colonna NOTE
                 if nota_form:
                     existing = ws[f'P{excel_row}'].value or ''
                     sep = '\n' if existing else ''
                     ws[f'P{excel_row}'] = f"{existing}{sep}[{prossimo}] {nota_form}"
 
-                    # >>> NEW: commento Excel sulla cella della scalatura
+                    # commento Excel sulla cella
                     cell = ws[target_addr]
                     prev = cell.comment.text if cell.comment else ""
                     txt = f"Appuntamento {prossimo}: {nota_form}"
@@ -360,7 +382,7 @@ def gestisci():
             wb.save(EXCEL_PATH)
             wb.close()
 
-            # >>> NEW: upload su OneDrive dopo il salvataggio
+            # upload su OneDrive dopo il salvataggio (no-op in locale o se SKIP_CLOUD=1)
             sync_to_cloud()
 
         except Exception as e:
@@ -382,7 +404,6 @@ def gestisci():
             'numero': numero,
             'card': (r['N° CARD'] if not pd.isna(r['N° CARD']) else ''),
             'note': '',  # sempre vuota quando apri
-            # >>> NEW: servizio sicuro
             'servizio': (r.get(serv_col) if (serv_col and not pd.isna(r.get(serv_col))) else ''),
             'valore': format_valore(r['VALORE']),
             'non_utilizzabile': non_utilizzabile,
@@ -403,7 +424,6 @@ def assegna_card():
         numero = numero[1:]
 
     try:
-        # >>> NEW: sync prima di leggere con pandas
         sync_from_cloud()
         df = pd.read_excel(EXCEL_PATH)
     except Exception as e:
@@ -429,7 +449,6 @@ def assegna_card():
 
         wb = None
         try:
-            # >>> NEW: sync prima di aprire in scrittura
             sync_from_cloud()
             wb = load_workbook(EXCEL_PATH)
             ws = wb.active
@@ -439,7 +458,7 @@ def assegna_card():
             wb.save(EXCEL_PATH)
             wb.close()
 
-            # >>> NEW: upload su OneDrive dopo il salvataggio
+            # upload su OneDrive dopo il salvataggio (no-op in locale o se SKIP_CLOUD=1)
             sync_to_cloud()
 
         except Exception as e:
@@ -458,4 +477,6 @@ def assegna_card():
     return render_template('assegna_card.html', numero=numero, valore_card=val_esistente, errore=None)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "5000"))
+    app.run(debug=DEV_MODE, host=host, port=port)

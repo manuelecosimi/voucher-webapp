@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="format-detection" content="telephone=no, email=no, address=no, date=no, url=no">
   <title>Controlla Voucher</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -11,9 +12,22 @@
     
     <div class="container">
         <h1>Controlla Voucher / Gift Card</h1>
-        <form method="post" action="/">
-          <input type="text" name="numero" placeholder="Inserisci numero Voucher o Gift" class="input-home">
-          <button type="submit">Cerca</button>
+
+        <!-- MOD: aggiunte classi search-form + search-row per il layout mobile -->
+        <form method="post" action="/" class="search-form">
+          <div class="search-row">
+            <input
+              type="text"
+              name="numero"
+              placeholder="Inserisci numero Voucher o Gift"
+              class="input-home"
+              autocomplete="off"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              required
+            >
+            <button type="submit" class="btn-primary">Cerca</button>
+          </div>
         </form>
 
         {% if errore %}

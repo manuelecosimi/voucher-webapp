@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Voucher trovato</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display&display=swap" rel="stylesheet">
@@ -14,13 +15,13 @@
   <!-- Box dei risultati -->
   <div class="voucher-box">
 
-    <div class="voucher-row">
-      <span class="voucher-icon">📦</span>
-      <span class="voucher-label">Ordine:</span>
-      <span class="voucher-data">{{ voucher.ordine }}</span>
-    </div>
+<div class="voucher-row row-inline">
+  <span class="voucher-icon">📦</span>
+  <span class="voucher-label">Ordine:</span>
+  <span class="voucher-data">{{ voucher.ordine }}</span>
+</div>
 
-    <div class="voucher-row">
+    <div class="voucher-row row-inline">
       <span class="voucher-icon">🔐</span>
       <span class="voucher-label">Status:</span>
       <span class="voucher-data" style="color: {% if voucher.status|lower == 'attiva' %}#00cc66{% elif voucher.status|lower == 'scaduta' %}#cc3333{% else %}white{% endif %};">
@@ -42,7 +43,7 @@
     {% else %}
 
       {% if voucher.card %}
-      <div class="voucher-row">
+      <div class="voucher-row row-inline">
         <span class="voucher-icon">💳</span>
         <span class="voucher-label">Card:</span>
         <span class="voucher-data">{{ voucher.card }}</span>
@@ -51,18 +52,18 @@
 
       <br>
 
-      <div class="voucher-row">
+      <div class="voucher-row row-inline">
         <span class="voucher-icon">💶</span>
         <span class="voucher-label">Valore:</span>
         <span class="voucher-data">{{ voucher.valore }}</span>
       </div>
 
-      <div class="voucher-row">
+      <div class="voucher-row row-inline">
         <span class="voucher-icon">💰</span>
         <span class="voucher-label">Residuo:</span>
         <span class="voucher-data">{{ voucher.residuo }}</span>
       </div>
-
+<br>
       {% if voucher.servizio %}
       <div class="voucher-row">
         <span class="voucher-icon">📝</span>
@@ -97,7 +98,7 @@
         <span class="voucher-data">{{ voucher.email }}</span>
       </div>
 
-      <div class="voucher-row">
+      <div class="voucher-row row-inline">
         <span class="voucher-icon">📅</span>
         <span class="voucher-label">Data acquisto:</span>
         <span class="voucher-data">{{ voucher.data }}</span>
