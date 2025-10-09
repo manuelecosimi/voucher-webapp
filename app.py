@@ -381,46 +381,48 @@ def gestisci():
             col_letter = get_column_letter(col_idx)
             target_addr = f'{col_letter}{excel_row}'
 
-            # lettura sicura del servizio
+                        # lettura sicura del servizio
             serv_val = r.get(serv_col) if serv_col else None
 
+            # normalizza input importo (se presente)
+            importo_txt = (request.form.get('scalatura') or '').strip()
+            importo_txt_norm = importo_txt.replace('€', '').replace('\xa0', ' ').strip().replace(',', '.')
+            imp = _parse_money(importo_txt_norm)
+
+            wrote = False  # traccia se abbiamo scritto qualcosa nella cella
+
             if serv_val is not None and str(serv_val).strip() != "":
+                # Schermata "Servizio effettuato"
                 if request.form.get('servizio_effettuato'):
                     valore = _parse_money(r['VALORE']) or 0.0
                     ws[target_addr] = valore
-                    if nota_form:
-                        cell = ws[target_addr]
-                        prev = cell.comment.text if cell.comment else ""
-                        txt = f"Servizio effettuato: {nota_form}"
-                        cell.comment = Comment(((prev + "\n") if prev else "") + txt, "WebApp")
-
-                # >>> RIMOSSO: niente più scrittura su colonna O
-
+                    wrote = True
             else:
-                importo_txt = (request.form.get('scalatura') or '').strip()
-                importo_txt_norm = importo_txt.replace('€', '').replace('\xa0', ' ').strip().replace(',', '.')
-                imp = _parse_money(importo_txt_norm)
+                # Schermata "Appuntamento X" (SERVIZIO vuoto): serve importo valido
                 if imp is None or imp <= 0:
                     if wb: wb.close()
                     return "Importo non valido"
-
                 ws[target_addr] = imp
+                wrote = True
 
+            # Se abbiamo scritto, aggiungi commento sulla stessa cella
+            if wrote:
+                nota_form = (request.form.get('note') or '').strip()
                 if nota_form:
-                    # >>> RIMOSSO: niente più scrittura su colonna O
                     cell = ws[target_addr]
                     prev = cell.comment.text if cell.comment else ""
-                    txt = f"Appuntamento {prossimo}: {nota_form}"
-                    cell.comment = Comment(((prev + "\n") if prev else "") + txt, "WebApp")
+                    prefix = "Servizio effettuato" if request.form.get('servizio_effettuato') else f"Appuntamento {prossimo}"
+                    cell.comment = Comment(((prev + "\n") if prev else "") + f"{prefix}: {nota_form}", "WebApp")
 
-print("[DBG]",
-      "prossimo=", prossimo,
-      "target_addr=", target_addr,
-      "serv_pieno=", bool((r.get(serv_col) if serv_col else "")),
-      "chk=", bool(request.form.get('servizio_effettuato')),
-      "imp_raw=", (request.form.get('scalatura') or '').strip(),
-      "imp_norm=", (request.form.get('scalatura') or '').replace('€','').replace('\xa0',' ').strip().replace(',', '.'),
-      "nota=", (request.form.get('note') or '').strip())
+            # DEBUG (tenuto dentro al try e prima del save)
+            print("[DBG]",
+                  "prossimo=", prossimo,
+                  "target_addr=", target_addr,
+                  "serv_pieno=", bool(serv_val and str(serv_val).strip()),
+                  "chk=", bool(request.form.get('servizio_effettuato')),
+                  "imp_raw=", importo_txt,
+                  "imp_norm=", importo_txt_norm,
+                  "wrote=", wrote)
 
             wb.save(EXCEL_PATH)
             wb.close()
