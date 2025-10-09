@@ -338,7 +338,8 @@ def gestisci():
             idx_scal = {str(i): header_idx.get(str(i)) for i in range(1, 6)}
             idx_card = header_idx.get('N° CARD')
 
-            # aggiorna card (se inviata)
+            # aggiorna card (sempre, se il form ha inviato un valore)
+            card_from_form = (request.form.get('card') or '').strip()
             if idx_card and card_from_form:
                 ws[f'{get_column_letter(idx_card)}{excel_row}'] = card_from_form
 
