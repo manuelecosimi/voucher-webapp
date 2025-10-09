@@ -2,25 +2,24 @@ from flask import Flask, render_template, request
 import pandas as pd
 from datetime import datetime, timedelta
 import os, time
-import re  # >>> FIX: ci serve per tenere solo le cifre
+import re
 
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
 from openpyxl.utils import get_column_letter
 
-# >>> OneDrive / MS Graph (rimane importabile; lo useremo solo se USE_CLOUD=1)
+# OneDrive / MS Graph (usato solo se USE_CLOUD=1)
 import requests
 import msal
 from dotenv import load_dotenv
 
 # -------------------- ENV & MODALITÀ DEV --------------------
-# Carica .env.dev se esiste, altrimenti .env (prod)
 env_file = ".env.dev" if os.path.exists(".env.dev") else ".env"
 load_dotenv(env_file)
 
-DEV_MODE  = os.getenv("DEV_MODE")  == "1"   # in locale: 1
-USE_CLOUD = os.getenv("USE_CLOUD") == "1"   # in locale: 0
-SKIP_CLOUD = os.getenv("SKIP_CLOUD") == "1" # per disabilitare le sync se serve
+DEV_MODE  = os.getenv("DEV_MODE")  == "1"
+USE_CLOUD = os.getenv("USE_CLOUD") == "1"
+SKIP_CLOUD = os.getenv("SKIP_CLOUD") == "1"
 # ------------------------------------------------------------
 
 app = Flask(__name__)
@@ -34,7 +33,6 @@ def healthz():
 # --- Path robusto all'Excel ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# In dev locale (USE_CLOUD=0) usa sempre il file locale
 if DEV_MODE and not USE_CLOUD:
     EXCEL_PATH = os.path.join(BASE_DIR, os.getenv("LOCAL_EXCEL_PATH", "voucher-clienti.xlsx"))
 else:
@@ -49,7 +47,6 @@ if USE_CLOUD:
     graph = GraphClient()
 
 def sync_from_cloud():
-    """Scarica l'Excel da OneDrive prima di ogni lettura (no-op in locale o se SKIP_CLOUD=1)."""
     if SKIP_CLOUD or not USE_CLOUD or graph is None:
         return
     try:
@@ -58,10 +55,6 @@ def sync_from_cloud():
         print(f"[SYNC] download da OneDrive saltato: {e}")
 
 def sync_to_cloud() -> bool:
-    """
-    Carica l'Excel su OneDrive dopo ogni salvataggio.
-    Ritorna True se ok, False se fallito (es. 423 Locked).
-    """
     if SKIP_CLOUD or not USE_CLOUD or graph is None:
         return True
     try:
@@ -71,13 +64,10 @@ def sync_to_cloud() -> bool:
     except Exception as e:
         print(f"[SYNC] upload verso OneDrive fallito/ritardato: {e}")
         return False
-# <<< END NEW
-
 
 # --- Utility ---
 
 def _parse_money(val):
-    """Converte stringhe tipo '€ 1.234,56' in float 1234.56. Ritorna None se vuoto/non valido."""
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return None
     if isinstance(val, (int, float)):
@@ -102,7 +92,6 @@ def format_valore(valore):
     return f"€{int(num)}" if float(num).is_integer() else f"€{num:.2f}"
 
 def _norm_card(v):
-    """Normalizza il valore della colonna 'N° CARD' a stringa senza decimali."""
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return ""
     s = str(v).strip()
@@ -110,11 +99,9 @@ def _norm_card(v):
         s = s[:-2]
     return s
 
-# >>> FIX: helper per tenere solo le cifre da input e da Excel
 def _digits(s) -> str:
     return "".join(re.findall(r"\d+", str(s))) if s is not None else ""
 
-# >>> FIX: trova la colonna "SERVIZIO" (prefix match, robusto)
 def find_service_col(columns):
     for c in columns:
         if c is None:
@@ -123,7 +110,6 @@ def find_service_col(columns):
             return c
     return None
 
-# >>> FIX: trova la colonna NOTE anche se si chiama "SERVIZIO / NOTE"
 def find_note_col(columns):
     for c in columns:
         if c is None:
@@ -133,14 +119,9 @@ def find_note_col(columns):
             return c
     return None
 
-
 # --- Ricerca voucher ---
 
 def cerca_voucher(numero, force_local: bool = False):
-    """
-    Se force_local=True NON scarica dal cloud prima di leggere (utile subito dopo un salvataggio
-    in cui l'upload è fallito: evitiamo di sovrascrivere con la versione vecchia).
-    """
     if not force_local:
         sync_from_cloud()
 
@@ -199,25 +180,21 @@ def cerca_voucher(numero, force_local: bool = False):
     # servizio sicuro
     servizio_val = values.get(servizio_col) if servizio_col else ""
 
-# NOTE e DATA sicure
-note_raw = values.get(note_col) or ""
-_data_cell = values.get('DATA')
+    # NOTE e DATA sicure  (>>> rientra nella funzione)
+    note_raw = values.get(note_col) or ""
+    _data_cell = values.get('DATA')
 
-_data_str = ""
-try:
-    # datetime.datetime o pandas.Timestamp
-    if hasattr(_data_cell, "strftime"):
-        _data_str = _data_cell.strftime("%d/%m/%Y")
-    # seriale Excel (numero giorni dall'epoch Excel)
-    elif isinstance(_data_cell, (int, float)) and _data_cell:
-        excel_epoch = datetime(1899, 12, 30)  # correzione per epoch Excel
-        _data_str = (excel_epoch + timedelta(days=float(_data_cell))).strftime("%d/%m/%Y")
-    # stringa già formattata
-    elif isinstance(_data_cell, str):
-        _data_str = _data_cell.strip()
-except Exception:
-    _data_str = str(_data_cell).strip() if _data_cell else ""
-
+    _data_str = ""
+    try:
+        if hasattr(_data_cell, "strftime"):
+            _data_str = _data_cell.strftime("%d/%m/%Y")
+        elif isinstance(_data_cell, (int, float)) and _data_cell:
+            excel_epoch = datetime(1899, 12, 30)
+            _data_str = (excel_epoch + timedelta(days=float(_data_cell))).strftime("%d/%m/%Y")
+        elif isinstance(_data_cell, str):
+            _data_str = _data_cell.strip()
+    except Exception:
+        _data_str = str(_data_cell).strip() if _data_cell else ""
 
     # mappa note per appuntamento (in NOTE salviamo "[N] testo")
     notes_map = {}
@@ -244,7 +221,6 @@ except Exception:
         'storico_note_map': notes_map,
         'non_utilizzabile': non_utilizzabile
     }
-
 
 # --- ROUTES ---
 
@@ -306,10 +282,9 @@ def index():
 
     return render_template('index.html', errore=errore)
 
-
 @app.route('/gestisci', methods=['GET', 'POST'])
 def gestisci():
-    numero = ((request.args.get('numero') or request.form.get('numero')) or '').strip()  # <<< FIX
+    numero = ((request.args.get('numero') or request.form.get('numero')) or '').strip()
     if not numero:
         return "Numero voucher mancante"
 
@@ -353,7 +328,7 @@ def gestisci():
             ws = wb.active
             excel_row = index + 2  # +1 header
 
-            # --- mappa header -> indice colonna (dinamico) ---
+            # mappa header -> indice colonna
             header_cells = next(ws.iter_rows(min_row=1, max_row=1))
             header_idx = {}
             for i, cell in enumerate(header_cells, start=1):
@@ -361,51 +336,44 @@ def gestisci():
                 header_idx[key] = i
 
             idx_scal = {str(i): header_idx.get(str(i)) for i in range(1, 6)}
-            # NOTA: calcoliamo idx_note ma NON lo usiamo più per scrivere in O
-            note_header = find_note_col(header_idx.keys())
-            idx_note = header_idx.get(note_header) if note_header else None
             idx_card = header_idx.get('N° CARD')
 
             # aggiorna card (se inviata)
             if idx_card:
                 ws[f'{get_column_letter(idx_card)}{excel_row}'] = request.form.get('card', '')
 
-            nota_form = (request.form.get('note') or '').strip()
-
             # colonna target della scalatura corrente
             col_idx = idx_scal.get(str(prossimo))
             if not col_idx:
                 if wb: wb.close()
                 return "Struttura file non valida: colonne 1-5 non trovate."
-
             col_letter = get_column_letter(col_idx)
             target_addr = f'{col_letter}{excel_row}'
 
-                        # lettura sicura del servizio
+            # lettura sicura del servizio
             serv_val = r.get(serv_col) if serv_col else None
 
-            # normalizza input importo (se presente)
+            # normalizza input importo
             importo_txt = (request.form.get('scalatura') or '').strip()
             importo_txt_norm = importo_txt.replace('€', '').replace('\xa0', ' ').strip().replace(',', '.')
             imp = _parse_money(importo_txt_norm)
 
-            wrote = False  # traccia se abbiamo scritto qualcosa nella cella
-
+            wrote = False
             if serv_val is not None and str(serv_val).strip() != "":
-                # Schermata "Servizio effettuato"
+                # schermata "Servizio effettuato"
                 if request.form.get('servizio_effettuato'):
                     valore = _parse_money(r['VALORE']) or 0.0
                     ws[target_addr] = valore
                     wrote = True
             else:
-                # Schermata "Appuntamento X" (SERVIZIO vuoto): serve importo valido
+                # schermata "Appuntamento X"
                 if imp is None or imp <= 0:
                     if wb: wb.close()
                     return "Importo non valido"
                 ws[target_addr] = imp
                 wrote = True
 
-            # Se abbiamo scritto, aggiungi commento sulla stessa cella
+            # commento sulla cella se abbiamo scritto
             if wrote:
                 nota_form = (request.form.get('note') or '').strip()
                 if nota_form:
@@ -414,7 +382,7 @@ def gestisci():
                     prefix = "Servizio effettuato" if request.form.get('servizio_effettuato') else f"Appuntamento {prossimo}"
                     cell.comment = Comment(((prev + "\n") if prev else "") + f"{prefix}: {nota_form}", "WebApp")
 
-            # DEBUG (tenuto dentro al try e prima del save)
+            # debug prima del salvataggio
             print("[DBG]",
                   "prossimo=", prossimo,
                   "target_addr=", target_addr,
@@ -438,7 +406,7 @@ def gestisci():
                 pass
             return f"Errore scrittura Excel: {e}"
 
-    # GET: prepara dati per la pagina (textarea note vuota)
+    # GET
     return render_template(
         'gestisci.html',
         label_appuntamento=label_appuntamento,
@@ -454,7 +422,6 @@ def gestisci():
             'colonna_attiva': prossimo
         }
     )
-
 
 # --- NUOVA ROTTA: assegna card ---
 @app.route('/assegna-card', methods=['GET', 'POST'])
@@ -494,8 +461,7 @@ def assegna_card():
             sync_from_cloud()
             wb = load_workbook(EXCEL_PATH)
             ws = wb.active
-            excel_row = index + 2  # +1 header
-            # Colonna B = "N° CARD"
+            excel_row = index + 2
             ws[f'B{excel_row}'] = card_val
             wb.save(EXCEL_PATH)
             wb.close()
