@@ -339,8 +339,8 @@ def gestisci():
             idx_card = header_idx.get('N° CARD')
 
             # aggiorna card (se inviata)
-            if idx_card:
-                ws[f'{get_column_letter(idx_card)}{excel_row}'] = request.form.get('card', '')
+            if idx_card and card_from_form:
+                ws[f'{get_column_letter(idx_card)}{excel_row}'] = card_from_form
 
             # colonna target della scalatura corrente
             col_idx = idx_scal.get(str(prossimo))
