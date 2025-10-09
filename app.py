@@ -350,8 +350,12 @@ def gestisci():
             col_letter = get_column_letter(col_idx)
             target_addr = f'{col_letter}{excel_row}'
 
-            # lettura sicura del servizio
-            serv_val = r.get(serv_col) if serv_col else None
+            # lettura sicura del servizio (NaN/None/"" => vuoto)
+            raw_serv = r.get(serv_col) if serv_col else None
+            if raw_serv is None or (isinstance(raw_serv, float) and pd.isna(raw_serv)):
+                has_service = False
+            else:
+                has_service = (str(raw_serv).strip() != "")
 
             # normalizza input importo
             importo_txt = (request.form.get('scalatura') or '').strip()
@@ -359,7 +363,7 @@ def gestisci():
             imp = _parse_money(importo_txt_norm)
 
             wrote = False
-            if serv_val is not None and str(serv_val).strip() != "":
+            if has_service:
                 # schermata "Servizio effettuato"
                 if request.form.get('servizio_effettuato'):
                     valore = _parse_money(r['VALORE']) or 0.0
@@ -386,11 +390,12 @@ def gestisci():
             print("[DBG]",
                   "prossimo=", prossimo,
                   "target_addr=", target_addr,
-                  "serv_pieno=", bool(serv_val and str(serv_val).strip()),
+                  "serv_pieno=", has_service,  # <<< ora corretto
                   "chk=", bool(request.form.get('servizio_effettuato')),
                   "imp_raw=", importo_txt,
                   "imp_norm=", importo_txt_norm,
                   "wrote=", wrote)
+
 
             wb.save(EXCEL_PATH)
             wb.close()
