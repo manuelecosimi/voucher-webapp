@@ -7,6 +7,7 @@ import re
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
 from openpyxl.utils import get_column_letter
+from openpyxl import load_workbook
 
 # OneDrive / MS Graph (usato solo se USE_CLOUD=1)
 import requests
@@ -173,8 +174,41 @@ def gift_number_exists(ws, gift_number):
 
     return False
 
-# --- Ricerca voucher ---
 
+def copy_row_style(ws, source_row, target_row, max_col=None):
+    if max_col is None:
+        max_col = ws.max_column
+
+    for col in range(1, max_col + 1):
+        source_cell = ws.cell(row=source_row, column=col)
+        target_cell = ws.cell(row=target_row, column=col)
+
+        if source_cell.has_style:
+            target_cell._style = copy(source_cell._style)
+
+        if source_cell.number_format:
+            target_cell.number_format = copy(source_cell.number_format)
+
+        if source_cell.font:
+            target_cell.font = copy(source_cell.font)
+
+        if source_cell.fill:
+            target_cell.fill = copy(source_cell.fill)
+
+        if source_cell.border:
+            target_cell.border = copy(source_cell.border)
+
+        if source_cell.alignment:
+            target_cell.alignment = copy(source_cell.alignment)
+
+        if source_cell.protection:
+            target_cell.protection = copy(source_cell.protection)
+
+    if source_row in ws.row_dimensions:
+        ws.row_dimensions[target_row].height = ws.row_dimensions[source_row].height
+
+
+# --- Ricerca voucher ---
 def cerca_voucher(numero, force_local: bool = False):
     if not force_local:
         sync_from_cloud()
@@ -620,6 +654,10 @@ def assegna_gift_card():
 
             nuovo_ordine = get_next_manual_gift_order_number(ws)
             target_row = find_first_empty_row(ws, start_row=2, key_col=idx_ordine)
+
+            # copia lo stile della riga precedente, se esiste
+            if target_row > 2:
+            copy_row_style(ws, target_row - 1, target_row, max_col=ws.max_column)
 
             ws.cell(row=target_row, column=idx_ordine).value = nuovo_ordine
             ws.cell(row=target_row, column=idx_card).value = gift_digits.zfill(4)
