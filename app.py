@@ -491,31 +491,31 @@ def assegna_gift_card():
     errore = None
 
     if request.method == 'POST':
-    form_data = {
-        'gift_number': (request.form.get('gift_number') or '').strip(),
-        'importo': (request.form.get('importo') or '').strip(),
-        'cliente': (request.form.get('cliente') or '').strip(),
-        'servizio': (request.form.get('servizio') or '').strip()
-    }
+        form_data = {
+            'gift_number': (request.form.get('gift_number') or '').strip(),
+            'importo': (request.form.get('importo') or '').strip(),
+            'cliente': (request.form.get('cliente') or '').strip(),
+            'servizio': (request.form.get('servizio') or '').strip()
+        }
 
-    gift_digits = _digits(form_data['gift_number'])
-    importo_val = _parse_money(form_data['importo'])
-    cliente_val = form_data['cliente'].strip()
+        gift_digits = _digits(form_data['gift_number'])
+        importo_val = _parse_money(form_data['importo'])
+        cliente_val = form_data['cliente'].strip()
 
-    if len(gift_digits) != 4:
-        errore = "Il Numero Gift deve contenere esattamente 4 cifre."
-    elif importo_val is None or importo_val <= 0:
-        errore = "Inserisci un importo valido."
-    elif not cliente_val:
-        errore = "Il campo Cliente è obbligatorio."
-    else:
-        errore = "Validazione superata correttamente."
+        if len(gift_digits) != 4:
+            errore = "Il Numero Gift deve contenere esattamente 4 cifre."
+        elif importo_val is None or importo_val <= 0:
+            errore = "Inserisci un importo valido."
+        elif not cliente_val:
+            errore = "Il campo Cliente è obbligatorio."
+        else:
+            errore = "Validazione superata correttamente."
 
-    return render_template(
-        'assegna_gift_card.html',
-        errore=errore,
-        form_data=form_data
-    )
+        return render_template(
+            'assegna_gift_card.html',
+            errore=errore,
+            form_data=form_data
+        )
 
     return render_template(
         'assegna_gift_card.html',
