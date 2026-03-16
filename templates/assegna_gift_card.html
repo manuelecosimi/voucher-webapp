@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assegna Gift Card</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="gestione-voucher-page">
+
+  <div class="voucher-box gestione-voucher-page">
+    <h1 class="voucher-title">Assegna Gift Card</h1>
+
+    <form method="POST" class="gift-form">
+
+      <div class="form-group">
+        <label for="gift_number">Numero Gift *</label>
+        <input
+          type="text"
+          id="gift_number"
+          name="gift_number"
+          value="{{ form_data.gift_number if form_data else '' }}"
+          maxlength="4"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          placeholder="Es. 1234"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="importo">Importo *</label>
+        <input
+          type="text"
+          id="importo"
+          name="importo"
+          value="{{ form_data.importo if form_data else '' }}"
+          placeholder="Es. 100"
+          inputmode="decimal"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="cliente">Cliente *</label>
+        <input
+          type="text"
+          id="cliente"
+          name="cliente"
+          value="{{ form_data.cliente if form_data else '' }}"
+          placeholder="Nome cliente"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="servizio">Servizio</label>
+        <input
+          type="text"
+          id="servizio"
+          name="servizio"
+          value="{{ form_data.servizio if form_data else '' }}"
+          placeholder="Facoltativo"
+        >
+      </div>
+
+      {% if errore %}
+        <p class="form-error">{{ errore }}</p>
+      {% endif %}
+
+      <div class="form-buttons">
+        <button type="submit">CONFERMA</button>
+        <a href="/">
+          <button type="button" class="back-btn">INDIETRO</button>
+        </a>
+      </div>
+
+    </form>
+  </div>
+
+</body>
+</html>

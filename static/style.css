@@ -616,4 +616,69 @@ button.back-btn:hover,
   filter: brightness(1.05);
 }
 
+.home-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+
+.home-secondary-link {
+  text-decoration: none !important;
+}
+
+.btn-secondary {
+  background-color: #333 !important;
+  color: #fff !important;
+  border-radius: 5px !important;
+  padding: 10px 20px;
+}
+
+@media (max-width: 640px) {
+  .home-actions .btn-secondary {
+    width: 100%;
+    max-width: 320px;
+  }
+}
+
+/* === Pagina Assegna Gift Card === */
+.gift-form .form-group {
+  margin-bottom: 18px;
+  text-align: left;
+}
+
+.gift-form label {
+  display: block;
+  color: #d4af37;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.gift-form input[type="text"] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 5px;
+  border: none;
+  box-sizing: border-box;
+  font-size: 1em;
+  background: #fff;
+  color: #000;
+}
+
+.form-error {
+  color: #ff6b6b;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  font-weight: bold;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .gift-form .form-group {
+    margin-bottom: 14px;
+  }
+
+  .gift-form input[type="text"] {
+    font-size: 16px;
+  }
+}
 

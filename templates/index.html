@@ -30,6 +30,12 @@
           </div>
         </form>
 
+<div class="home-actions">
+  <a href="{{ url_for('assegna_gift_card') }}" class="home-secondary-link">
+    <button type="button" class="btn-secondary">ASSEGNA GIFT CARD</button>
+  </a>
+</div>
+
         {% if errore %}
           <p style="color: red; margin-top: 10px;">{{ errore }}</p>
         {% endif %}

@@ -391,12 +391,11 @@ def gestisci():
             print("[DBG]",
                   "prossimo=", prossimo,
                   "target_addr=", target_addr,
-                  "serv_pieno=", has_service,  # <<< ora corretto
+                  "serv_pieno=", has_service,
                   "chk=", bool(request.form.get('servizio_effettuato')),
                   "imp_raw=", importo_txt,
                   "imp_norm=", importo_txt_norm,
                   "wrote=", wrote)
-
 
             wb.save(EXCEL_PATH)
             wb.close()
@@ -429,7 +428,7 @@ def gestisci():
         }
     )
 
-# --- NUOVA ROTTA: assegna card ---
+# --- ROTTA ESISTENTE: assegna card a voucher già esistente ---
 @app.route('/assegna-card', methods=['GET', 'POST'])
 def assegna_card():
     numero = (request.args.get('numero') or '').strip()
@@ -485,6 +484,26 @@ def assegna_card():
 
     val_esistente = '' if pd.isna(r['N° CARD']) else str(r['N° CARD'])
     return render_template('assegna_card.html', numero=numero_digits, valore_card=val_esistente, errore=None)
+
+# --- NUOVA ROTTA: crea gift card autonoma ---
+@app.route('/assegna-gift-card', methods=['GET', 'POST'])
+def assegna_gift_card():
+    form_data = {
+        'gift_number': '',
+        'importo': '',
+        'cliente': '',
+        'servizio': ''
+    }
+    errore = None
+
+    if request.method == 'POST':
+        return "POST da implementare"
+
+    return render_template(
+        'assegna_gift_card.html',
+        errore=errore,
+        form_data=form_data
+    )
 
 if __name__ == '__main__':
     host = os.getenv("HOST", "127.0.0.1")
