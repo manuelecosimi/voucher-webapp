@@ -652,12 +652,12 @@ def assegna_gift_card():
                     break
             idx_servizio = idx_servizio or 15
 
-            nuovo_ordine = get_next_manual_gift_order_number(ws)
+                        nuovo_ordine = get_next_manual_gift_order_number(ws)
             target_row = find_first_empty_row(ws, start_row=2, key_col=idx_ordine)
 
             # copia lo stile della riga precedente, se esiste
             if target_row > 2:
-            copy_row_style(ws, target_row - 1, target_row, max_col=ws.max_column)
+                copy_row_style(ws, target_row - 1, target_row, max_col=ws.max_column)
 
             ws.cell(row=target_row, column=idx_ordine).value = nuovo_ordine
             ws.cell(row=target_row, column=idx_card).value = gift_digits.zfill(4)
