@@ -624,7 +624,7 @@ def assegna_gift_card():
             ws.cell(row=target_row, column=idx_ordine).value = nuovo_ordine
             ws.cell(row=target_row, column=idx_card).value = gift_digits.zfill(4)
             ws.cell(row=target_row, column=idx_cliente).value = cliente_val
-            ws.cell(row=target_row, column=idx_data).value = datetime.now()
+            ws.cell(row=target_row, column=idx_data).value = datetime.now().date()
             ws.cell(row=target_row, column=idx_tipo).value = "GIFT CARD"
             ws.cell(row=target_row, column=idx_valore).value = importo_val
 
