@@ -119,6 +119,60 @@ def find_note_col(columns):
             return c
     return None
 
+def find_first_empty_row(ws, start_row=2, key_col=1):
+    row = start_row
+    while True:
+        val = ws.cell(row=row, column=key_col).value
+        if val is None or str(val).strip() == "":
+            return row
+        row += 1
+
+
+def get_next_manual_gift_order_number(ws):
+    max_num = 0
+
+    for row in ws.iter_rows(min_row=2, max_col=1, values_only=True):
+        raw = row[0]
+        if raw is None:
+            continue
+
+        s = str(raw).strip()
+        digits = _digits(s)
+
+        if digits.startswith("9"):
+            try:
+                n = int(digits)
+                if n > max_num:
+                    max_num = n
+            except Exception:
+                pass
+
+    if max_num == 0:
+        max_num = 90000
+
+    return f"#{max_num + 1}"
+
+
+def gift_number_exists(ws, gift_number):
+    target = str(gift_number).strip().zfill(4)
+
+    for row in ws.iter_rows(min_row=2, min_col=2, max_col=2, values_only=True):
+        raw = row[0]
+        if raw is None:
+            continue
+
+        s = str(raw).strip()
+        if s.endswith(".0"):
+            s = s[:-2]
+
+        if s.isdigit():
+            s = s.zfill(4)
+
+        if s == target:
+            return True
+
+    return False
+
 # --- Ricerca voucher ---
 
 def cerca_voucher(numero, force_local: bool = False):
@@ -502,20 +556,64 @@ def assegna_gift_card():
         importo_val = _parse_money(form_data['importo'])
         cliente_val = form_data['cliente'].strip()
 
-        if len(gift_digits) != 4:
+                if len(gift_digits) != 4:
             errore = "Il Numero Gift deve contenere esattamente 4 cifre."
-        elif importo_val is None or importo_val <= 0:
-            errore = "Inserisci un importo valido."
-        elif not cliente_val:
-            errore = "Il campo Cliente è obbligatorio."
-        else:
-            errore = "Validazione superata correttamente."
+            return render_template(
+                'assegna_gift_card.html',
+                errore=errore,
+                form_data=form_data
+            )
 
-        return render_template(
-            'assegna_gift_card.html',
-            errore=errore,
-            form_data=form_data
-        )
+        if importo_val is None or importo_val <= 0:
+            errore = "Inserisci un importo valido."
+            return render_template(
+                'assegna_gift_card.html',
+                errore=errore,
+                form_data=form_data
+            )
+
+        if not cliente_val:
+            errore = "Il campo Cliente è obbligatorio."
+            return render_template(
+                'assegna_gift_card.html',
+                errore=errore,
+                form_data=form_data
+            )
+
+        wb = None
+        try:
+            sync_from_cloud()
+            wb = load_workbook(EXCEL_PATH)
+            ws = wb.active
+
+            if gift_number_exists(ws, gift_digits):
+                wb.close()
+                errore = "Questo numero Gift è già presente."
+                return render_template(
+                    'assegna_gift_card.html',
+                    errore=errore,
+                    form_data=form_data
+                )
+
+            nuovo_ordine = get_next_manual_gift_order_number(ws)
+            prima_riga_libera = find_first_empty_row(ws, start_row=2, key_col=1)
+
+            wb.close()
+
+            errore = f"Test ok. Nuovo ordine: {nuovo_ordine} | Riga libera: {prima_riga_libera}"
+            return render_template(
+                'assegna_gift_card.html',
+                errore=errore,
+                form_data=form_data
+            )
+
+        except Exception as e:
+            try:
+                if wb:
+                    wb.close()
+            except:
+                pass
+            return f"Errore lettura Excel: {e}"
 
     return render_template(
         'assegna_gift_card.html',
