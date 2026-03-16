@@ -556,7 +556,7 @@ def assegna_gift_card():
         importo_val = _parse_money(form_data['importo'])
         cliente_val = form_data['cliente'].strip()
 
-                if len(gift_digits) != 4:
+        if len(gift_digits) != 4:
             errore = "Il Numero Gift deve contenere esattamente 4 cifre."
             return render_template(
                 'assegna_gift_card.html',
