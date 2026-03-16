@@ -3,11 +3,11 @@ import pandas as pd
 from datetime import datetime, timedelta
 import os, time
 import re
+from copy import copy
 
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
 from openpyxl.utils import get_column_letter
-from openpyxl import load_workbook
 
 # OneDrive / MS Graph (usato solo se USE_CLOUD=1)
 import requests
@@ -630,14 +630,12 @@ def assegna_gift_card():
                     form_data=form_data
                 )
 
-            # mappa header -> indice colonna
             header_cells = next(ws.iter_rows(min_row=1, max_row=1))
             header_idx = {}
             for i, cell in enumerate(header_cells, start=1):
                 key = (cell.value.strip() if isinstance(cell.value, str) else str(cell.value)) if cell.value is not None else ""
                 header_idx[key] = i
 
-                        # colonne: usa header se trovati, altrimenti fallback fisso
             idx_ordine = header_idx.get('ORDINE') or 1
             idx_card = header_idx.get('N° CARD') or 2
             idx_cliente = header_idx.get('CLIENTE \\ MAIL ORDINE') or 3
@@ -652,10 +650,9 @@ def assegna_gift_card():
                     break
             idx_servizio = idx_servizio or 15
 
-                        nuovo_ordine = get_next_manual_gift_order_number(ws)
+            nuovo_ordine = get_next_manual_gift_order_number(ws)
             target_row = find_first_empty_row(ws, start_row=2, key_col=idx_ordine)
 
-            # copia lo stile della riga precedente, se esiste
             if target_row > 2:
                 copy_row_style(ws, target_row - 1, target_row, max_col=ws.max_column)
 
