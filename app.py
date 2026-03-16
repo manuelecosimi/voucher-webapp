@@ -180,7 +180,7 @@ def cerca_voucher(numero, force_local: bool = False):
     # servizio sicuro
     servizio_val = values.get(servizio_col) if servizio_col else ""
 
-    # NOTE e DATA sicure  (>>> rientra nella funzione)
+    # NOTE e DATA sicure
     note_raw = values.get(note_col) or ""
     _data_cell = values.get('DATA')
 
@@ -196,7 +196,6 @@ def cerca_voucher(numero, force_local: bool = False):
     except Exception:
         _data_str = str(_data_cell).strip() if _data_cell else ""
 
-    # mappa note per appuntamento (in NOTE salviamo "[N] testo")
     notes_map = {}
     if isinstance(note_raw, str):
         for m in re.finditer(r"\[(\d)\]\s*(.+?)(?=(?:\s*\[\d\])|$)", note_raw, flags=re.S):
@@ -365,20 +364,17 @@ def gestisci():
 
             wrote = False
             if has_service:
-                # schermata "Servizio effettuato"
                 if request.form.get('servizio_effettuato'):
                     valore = _parse_money(r['VALORE']) or 0.0
                     ws[target_addr] = valore
                     wrote = True
             else:
-                # schermata "Appuntamento X"
                 if imp is None or imp <= 0:
                     if wb: wb.close()
                     return "Importo non valido"
                 ws[target_addr] = imp
                 wrote = True
 
-            # commento sulla cella se abbiamo scritto
             if wrote:
                 nota_form = (request.form.get('note') or '').strip()
                 if nota_form:
@@ -387,7 +383,6 @@ def gestisci():
                     prefix = "Servizio effettuato" if request.form.get('servizio_effettuato') else f"Appuntamento {prossimo}"
                     cell.comment = Comment(((prev + "\n") if prev else "") + f"{prefix}: {nota_form}", "WebApp")
 
-            # debug prima del salvataggio
             print("[DBG]",
                   "prossimo=", prossimo,
                   "target_addr=", target_addr,
@@ -411,7 +406,6 @@ def gestisci():
                 pass
             return f"Errore scrittura Excel: {e}"
 
-    # GET
     return render_template(
         'gestisci.html',
         label_appuntamento=label_appuntamento,
@@ -485,7 +479,7 @@ def assegna_card():
     val_esistente = '' if pd.isna(r['N° CARD']) else str(r['N° CARD'])
     return render_template('assegna_card.html', numero=numero_digits, valore_card=val_esistente, errore=None)
 
-# --- NUOVA ROTTA: crea gift card autonoma ---
+# --- NUOVA ROTTA: apre la pagina assegna gift card ---
 @app.route('/assegna-gift-card', methods=['GET', 'POST'])
 def assegna_gift_card():
     form_data = {
@@ -497,7 +491,17 @@ def assegna_gift_card():
     errore = None
 
     if request.method == 'POST':
-        return "POST da implementare"
+        form_data = {
+            'gift_number': (request.form.get('gift_number') or '').strip(),
+            'importo': (request.form.get('importo') or '').strip(),
+            'cliente': (request.form.get('cliente') or '').strip(),
+            'servizio': (request.form.get('servizio') or '').strip()
+        }
+        return render_template(
+            'assegna_gift_card.html',
+            errore="POST ricevuto correttamente.",
+            form_data=form_data
+        )
 
     return render_template(
         'assegna_gift_card.html',
