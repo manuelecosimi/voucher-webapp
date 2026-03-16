@@ -603,10 +603,11 @@ def assegna_gift_card():
                 key = (cell.value.strip() if isinstance(cell.value, str) else str(cell.value)) if cell.value is not None else ""
                 header_idx[key] = i
 
-            # colonne: usa header se trovati, altrimenti fallback fisso
+                        # colonne: usa header se trovati, altrimenti fallback fisso
             idx_ordine = header_idx.get('ORDINE') or 1
             idx_card = header_idx.get('N° CARD') or 2
             idx_cliente = header_idx.get('CLIENTE \\ MAIL ORDINE') or 3
+            idx_data = header_idx.get('DATA') or 4
             idx_tipo = header_idx.get('TIPO') or 7
             idx_valore = header_idx.get('VALORE') or 8
 
@@ -623,6 +624,7 @@ def assegna_gift_card():
             ws.cell(row=target_row, column=idx_ordine).value = nuovo_ordine
             ws.cell(row=target_row, column=idx_card).value = gift_digits.zfill(4)
             ws.cell(row=target_row, column=idx_cliente).value = cliente_val
+            ws.cell(row=target_row, column=idx_data).value = datetime.now()
             ws.cell(row=target_row, column=idx_tipo).value = "GIFT CARD"
             ws.cell(row=target_row, column=idx_valore).value = importo_val
 
