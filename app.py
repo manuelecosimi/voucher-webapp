@@ -555,6 +555,7 @@ def assegna_gift_card():
         gift_digits = _digits(form_data['gift_number'])
         importo_val = _parse_money(form_data['importo'])
         cliente_val = form_data['cliente'].strip()
+        servizio_val = form_data['servizio'].strip()
 
         if len(gift_digits) != 4:
             errore = "Il Numero Gift deve contenere esattamente 4 cifre."
@@ -595,16 +596,49 @@ def assegna_gift_card():
                     form_data=form_data
                 )
 
-            nuovo_ordine = get_next_manual_gift_order_number(ws)
-            prima_riga_libera = find_first_empty_row(ws, start_row=2, key_col=1)
+            # mappa header -> indice colonna
+            header_cells = next(ws.iter_rows(min_row=1, max_row=1))
+            header_idx = {}
+            for i, cell in enumerate(header_cells, start=1):
+                key = (cell.value.strip() if isinstance(cell.value, str) else str(cell.value)) if cell.value is not None else ""
+                header_idx[key] = i
 
+            # colonne: usa header se trovati, altrimenti fallback fisso
+            idx_ordine = header_idx.get('ORDINE') or 1
+            idx_card = header_idx.get('N° CARD') or 2
+            idx_cliente = header_idx.get('CLIENTE \\ MAIL ORDINE') or 3
+            idx_tipo = header_idx.get('TIPO') or 7
+            idx_valore = header_idx.get('VALORE') or 8
+
+            idx_servizio = None
+            for k, v in header_idx.items():
+                if k and str(k).strip().upper().startswith("SERVIZIO"):
+                    idx_servizio = v
+                    break
+            idx_servizio = idx_servizio or 15
+
+            nuovo_ordine = get_next_manual_gift_order_number(ws)
+            target_row = find_first_empty_row(ws, start_row=2, key_col=idx_ordine)
+
+            ws.cell(row=target_row, column=idx_ordine).value = nuovo_ordine
+            ws.cell(row=target_row, column=idx_card).value = gift_digits.zfill(4)
+            ws.cell(row=target_row, column=idx_cliente).value = cliente_val
+            ws.cell(row=target_row, column=idx_tipo).value = "GIFT CARD"
+            ws.cell(row=target_row, column=idx_valore).value = importo_val
+
+            if servizio_val:
+                ws.cell(row=target_row, column=idx_servizio).value = servizio_val
+
+            wb.save(EXCEL_PATH)
             wb.close()
 
-            errore = f"Test ok. Nuovo ordine: {nuovo_ordine} | Riga libera: {prima_riga_libera}"
+            ok = sync_to_cloud()
+            nuovo_numero_digits = _digits(nuovo_ordine)
+
             return render_template(
-                'assegna_gift_card.html',
-                errore=errore,
-                form_data=form_data
+                'voucher.html',
+                voucher=cerca_voucher(nuovo_numero_digits, force_local=not ok),
+                by_gift=False
             )
 
         except Exception as e:
@@ -613,7 +647,7 @@ def assegna_gift_card():
                     wb.close()
             except:
                 pass
-            return f"Errore lettura Excel: {e}"
+            return f"Errore scrittura Excel: {e}"
 
     return render_template(
         'assegna_gift_card.html',
