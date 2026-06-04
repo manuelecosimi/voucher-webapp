@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Voucher trovato</title>
+  <title>{% if by_gift %}GIFT TROVATA{% else %}Voucher trovato{% endif %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display&display=swap" rel="stylesheet">
 </head>
 <body>
 
   <!-- Titolo fuori dal box -->
-  <h1 class="voucher-title">Voucher trovato</h1>
+  <h1 class="voucher-title">{% if by_gift %}GIFT TROVATA{% else %}Voucher trovato{% endif %}</h1>
 
   <!-- Box dei risultati -->
   <div class="voucher-box">
@@ -32,7 +32,13 @@
     {% if voucher.status|lower == 'scaduta' %}
       <br>
       <div class="voucher-row" style="justify-content: center;">
-        <span style="color: #cc3333; font-weight: bold; font-size: 20px;">Questo voucher è già stato utilizzato</span>
+        <span style="color: #cc3333; font-weight: bold; font-size: 20px;">
+          {% if by_gift and voucher.gift_number %}
+            Gift n° {{ voucher.gift_number }} già utilizzata
+          {% else %}
+            Questo voucher è già stato utilizzato
+          {% endif %}
+        </span>
       </div>
       <br>
       <div class="voucher-row">
@@ -152,6 +158,13 @@
   <a href="/">
     <button style="background-color: #333; color: white;">CERCA UN ALTRO VOUCHER</button>
   </a>
+
+  {% if by_gift and voucher.status|lower == 'scaduta' and voucher.gift_number %}
+    <form method="POST" action="{{ url_for('riusa_gift_card') }}" style="display: inline;">
+      <input type="hidden" name="gift_number" value="{{ voucher.gift_number }}">
+      <button type="submit" style="background-color: #d4a855; color: #222;">RIUTILIZZA GIFT</button>
+    </form>
+  {% endif %}
 </div>
 
 

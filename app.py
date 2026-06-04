@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 import pandas as pd
 from datetime import datetime, timedelta
 import os, time
@@ -103,6 +103,7 @@ def _norm_card(v):
 def _digits(s) -> str:
     return "".join(re.findall(r"\d+", str(s))) if s is not None else ""
 
+
 def find_service_col(columns):
     for c in columns:
         if c is None:
@@ -155,10 +156,14 @@ def get_next_manual_gift_order_number(ws):
 
 
 def gift_number_exists(ws, gift_number):
+    return find_gift_card_row(ws, gift_number) is not None
+
+
+def find_gift_card_row(ws, gift_number):
     target = str(gift_number).strip().zfill(4)
 
-    for row in ws.iter_rows(min_row=2, min_col=2, max_col=2, values_only=True):
-        raw = row[0]
+    for row in range(2, ws.max_row + 1):
+        raw = ws.cell(row=row, column=2).value
         if raw is None:
             continue
 
@@ -170,9 +175,9 @@ def gift_number_exists(ws, gift_number):
             s = s.zfill(4)
 
         if s == target:
-            return True
+            return row
 
-    return False
+    return None
 
 
 def copy_row_style(ws, source_row, target_row, max_col=None):
@@ -271,6 +276,11 @@ def cerca_voucher(numero, force_local: bool = False):
     # NOTE e DATA sicure
     note_raw = values.get(note_col) or ""
     _data_cell = values.get('DATA')
+    status_raw = values.get('STATUS')
+    if status_raw is None or (isinstance(status_raw, float) and pd.isna(status_raw)):
+        status = ""
+    else:
+        status = str(status_raw).strip().lower()
 
     _data_str = ""
     try:
@@ -294,7 +304,7 @@ def cerca_voucher(numero, force_local: bool = False):
     return {
         'numero': target,
         'ordine': values.get('ORDINE'),
-        'status': "scaduta" if residuo_raw == 0 else "attiva",
+        'status': status,
         'valore': format_valore(valore_raw),
         'residuo': format_valore(residuo_raw),
         'servizio': servizio_val or "",
@@ -358,6 +368,7 @@ def index():
                 ordine_digits = _digits(ordine_val)
                 risultato = cerca_voucher(ordine_digits)
                 if risultato:
+                    risultato['gift_number'] = q
                     return render_template('voucher.html', voucher=risultato, by_gift=True)
                 else:
                     errore = "Si è verificato un problema nel recupero della gift."
@@ -571,7 +582,7 @@ def assegna_card():
 @app.route('/assegna-gift-card', methods=['GET', 'POST'])
 def assegna_gift_card():
     form_data = {
-        'gift_number': '',
+        'gift_number': ((request.args.get('gift') or request.args.get('gift_number')) or '').strip(),
         'importo': '',
         'cliente': '',
         'servizio': ''
@@ -691,6 +702,49 @@ def assegna_gift_card():
         errore=errore,
         form_data=form_data
     )
+
+
+@app.route('/riusa-gift-card', methods=['POST'])
+def riusa_gift_card():
+    gift_digits = _digits(request.form.get('gift_number') or '')
+
+    if len(gift_digits) != 4:
+        return render_template(
+            'assegna_gift_card.html',
+            errore="Il Numero Gift deve contenere esattamente 4 cifre.",
+            form_data={
+                'gift_number': request.form.get('gift_number') or '',
+                'importo': request.form.get('importo') or '',
+                'cliente': request.form.get('cliente') or '',
+                'servizio': request.form.get('servizio') or ''
+            }
+        )
+
+    wb = None
+    try:
+        sync_from_cloud()
+        wb = load_workbook(EXCEL_PATH)
+        ws = wb.active
+
+        row = find_gift_card_row(ws, gift_digits)
+        if row is None:
+            wb.close()
+            return redirect(url_for('assegna_gift_card', gift=gift_digits.zfill(4)))
+
+        ws.cell(row=row, column=2).value = None
+        wb.save(EXCEL_PATH)
+        wb.close()
+
+        sync_to_cloud()
+        return redirect(url_for('assegna_gift_card', gift=gift_digits.zfill(4)))
+
+    except Exception as e:
+        try:
+            if wb:
+                wb.close()
+        except:
+            pass
+        return f"Errore riuso Gift: {e}"
 
 if __name__ == '__main__':
     host = os.getenv("HOST", "127.0.0.1")
