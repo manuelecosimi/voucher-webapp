@@ -121,6 +121,28 @@ def find_note_col(columns):
             return c
     return None
 
+
+def _norm_header_name(value):
+    if value is None:
+        return ""
+    text = str(value)
+    text = text.replace("\ufeff", "").replace("\xa0", " ").replace("\u202f", " ")
+    return re.sub(r"\s+", " ", text).strip().upper()
+
+
+def find_status_col(headers):
+    for idx, header in enumerate(headers, start=1):
+        if _norm_header_name(header) == "STATUS":
+            return idx
+    return 5
+
+
+def normalize_status(value):
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    status = str(value).replace("\xa0", " ").replace("\u202f", " ").strip().lower()
+    return status
+
 def find_first_empty_row(ws, start_row=2, key_col=1):
     row = start_row
     while True:
@@ -229,6 +251,7 @@ def cerca_voucher(numero, force_local: bool = False):
 
     servizio_col = find_service_col(headers)
     note_col = find_note_col(headers)
+    status_col = find_status_col(headers)
 
     target = _digits(numero)
 
@@ -243,6 +266,7 @@ def cerca_voucher(numero, force_local: bool = False):
         wb.close()
         return None
 
+    status_raw = found_row[status_col - 1].value if status_col <= len(found_row) else None
     values = dict(zip(headers, [cell.value for cell in found_row]))
     wb.close()
 
@@ -276,11 +300,7 @@ def cerca_voucher(numero, force_local: bool = False):
     # NOTE e DATA sicure
     note_raw = values.get(note_col) or ""
     _data_cell = values.get('DATA')
-    status_raw = values.get('STATUS')
-    if status_raw is None or (isinstance(status_raw, float) and pd.isna(status_raw)):
-        status = ""
-    else:
-        status = str(status_raw).strip().lower()
+    status = normalize_status(status_raw)
 
     _data_str = ""
     try:
