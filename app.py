@@ -126,7 +126,8 @@ def _norm_header_name(value):
     if value is None:
         return ""
     text = str(value)
-    text = text.replace("\ufeff", "").replace("\xa0", " ").replace("\u202f", " ")
+    text = text.replace("\ufeff", "").replace("\u200b", "").replace("\u200c", "").replace("\u200d", "")
+    text = text.replace("\xa0", " ").replace("\u202f", " ")
     return re.sub(r"\s+", " ", text).strip().upper()
 
 
@@ -141,6 +142,10 @@ def normalize_status(value):
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return ""
     status = str(value).replace("\xa0", " ").replace("\u202f", " ").strip().lower()
+    if "scaduta" in status:
+        return "scaduta"
+    if "attiva" in status:
+        return "attiva"
     return status
 
 def find_first_empty_row(ws, start_row=2, key_col=1):
@@ -301,6 +306,10 @@ def cerca_voucher(numero, force_local: bool = False):
     note_raw = values.get(note_col) or ""
     _data_cell = values.get('DATA')
     status = normalize_status(status_raw)
+    print(
+        f"[STATUS DEBUG] ordine={values.get('ORDINE')} "
+        f"status_col={status_col} status_raw={status_raw!r} status_norm={status}"
+    )
 
     _data_str = ""
     try:
